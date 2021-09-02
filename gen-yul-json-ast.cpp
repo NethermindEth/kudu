@@ -14,7 +14,25 @@
 #include <solc/CommandLineInterface.h>
 #include <tools/yulPhaser/Program.h>
 
+#include "Prepass.h"
+
 using namespace solidity;
+using namespace std;
+
+string slurpFile(string_view path)
+{
+	constexpr size_t BUF_SIZE = 4096;
+
+	string result;
+	ifstream is{path.data()};
+	is.exceptions(ifstream::badbit);
+	string buf(BUF_SIZE, '\0');
+	while (is.read(buf.data(), BUF_SIZE))
+		result.append(buf, 0, is.gcount());
+	result.append(buf, 0, is.gcount());
+
+	return result;
+}
 
 langutil::CharStream generateIR(char const* sol_filepath)
 {
@@ -74,9 +92,12 @@ int main(int argc, char* argv[])
 		std::cerr << boost::diagnostic_information(exc) << std::endl;
 		return 1;
 	}
+	string irSource = irStream.source(); 
+	auto yul = cleanYul(irSource);
+	langutil::CharStream ir = langutil::CharStream(yul, "bid.yul");
 
 	std::variant<phaser::Program, langutil::ErrorList> maybeProgram
-		= phaser::Program::load(irStream);
+		= phaser::Program::load(ir);
 	if (auto* errorList = std::get_if<langutil::ErrorList>(&maybeProgram))
 	{
 		langutil::SingletonCharStreamProvider streamProvider{irStream};
