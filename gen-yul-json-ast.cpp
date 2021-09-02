@@ -8,6 +8,7 @@
 
 #include <liblangutil/CharStreamProvider.h>
 #include <liblangutil/SourceReferenceFormatter.h>
+#include <libsolidity/interface/OptimiserSettings.h>
 #include <libyul/AST.h>
 #include <libyul/AsmJsonConverter.h>
 #include <solc/CommandLineInterface.h>
@@ -17,11 +18,22 @@ using namespace solidity;
 
 langutil::CharStream generateIR(char const* sol_filepath)
 {
+	std::string yulOptimiserSteps = frontend::OptimiserSettings::DefaultYulOptimiserSteps;
+	yulOptimiserSteps += " x"; // that flattens function calls: only one
+							   // function call per statement is allowed
+	constexpr int solc_argc = 6;
+	char const* solc_argv[solc_argc] = {
+		"irToJson",
+		"--optimize",
+		"--ir-optimized",
+		"--yul-optimizations",
+		yulOptimiserSteps.c_str(),
+		sol_filepath,
+	};
+
 	std::istringstream sin; // never used, but the CLI requires it
 	std::ostringstream sout;
 	frontend::CommandLineInterface cli{sin, sout, std::cerr};
-	constexpr int solc_argc = 4;
-	char const* solc_argv[solc_argc] = {"irToJson", "--optimize", "--ir-optimized", sol_filepath};
 	if (not cli.parseArguments(solc_argc, solc_argv))
 		BOOST_THROW_EXCEPTION(std::runtime_error{"solc CLI failed to parse arguments"});
 	if (not cli.readInputFiles())
@@ -52,9 +64,19 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 	char const* sol_filepath = argv[1];
-	auto irStream = generateIR(sol_filepath);
+	langutil::CharStream irStream;
+	try
+	{
+		irStream = generateIR(sol_filepath);
+	}
+	catch (boost::exception const& exc)
+	{
+		std::cerr << boost::diagnostic_information(exc) << std::endl;
+		return 1;
+	}
 
-	std::variant<phaser::Program, langutil::ErrorList> maybeProgram = phaser::Program::load(irStream);
+	std::variant<phaser::Program, langutil::ErrorList> maybeProgram
+		= phaser::Program::load(irStream);
 	if (auto* errorList = std::get_if<langutil::ErrorList>(&maybeProgram))
 	{
 		langutil::SingletonCharStreamProvider streamProvider{irStream};
