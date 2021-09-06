@@ -96,22 +96,23 @@ int main(int argc, char* argv[])
 	}
 	string irSource = irStream.source(); 
 	auto yul = cleanYul(irSource, main_contract);
-	langutil::CharStream ir = langutil::CharStream(yul, "ERC20.sol");
+	cout << yul << endl;
+	// langutil::CharStream ir = langutil::CharStream(yul, "ERC20.sol");
 
-	std::variant<phaser::Program, langutil::ErrorList> maybeProgram
-		= phaser::Program::load(ir);
-	if (auto* errorList = std::get_if<langutil::ErrorList>(&maybeProgram))
-	{
-		langutil::SingletonCharStreamProvider streamProvider{ir};
-		langutil::SourceReferenceFormatter{std::cerr, streamProvider, true, false}
-			.printErrorInformation(*errorList);
-		std::cerr << std::endl;
-		return 1;
-	}
+	// std::variant<phaser::Program, langutil::ErrorList> maybeProgram
+	// 	= phaser::Program::load(ir);
+	// if (auto* errorList = std::get_if<langutil::ErrorList>(&maybeProgram))
+	// {
+	// 	langutil::SingletonCharStreamProvider streamProvider{ir};
+	// 	langutil::SourceReferenceFormatter{std::cerr, streamProvider, true, false}
+	// 		.printErrorInformation(*errorList);
+	// 	std::cerr << std::endl;
+	// 	return 1;
+	// }
 
-	yul::Block const& ast = get<phaser::Program>(maybeProgram).ast();
-	yul::AsmJsonConverter jsonConverter{{}};
-	std::cout << jsonConverter(ast) << std::endl;
+	// yul::Block const& ast = get<phaser::Program>(maybeProgram).ast();
+	// yul::AsmJsonConverter jsonConverter{{}};
+	// std::cout << jsonConverter(ast) << std::endl;
 
 	return 0;
 }

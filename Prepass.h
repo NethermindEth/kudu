@@ -34,9 +34,9 @@ vector<string> removePreamble(vector<string> lines)
 	return vector<string>();
 }
 
-vector<string> getRuntimeYul(vector<string> lines)
+vector<string> getRuntimeYul(vector<string> yul)
 {
-	// vector<string> lines = removePreamble(yul);
+	vector<string> lines = removePreamble(yul);
 	int start = lines[0].find("\"");
 	int end = lines[0].find("\"", start + 1);
 	string objectName = lines[0].substr(start, end - start);
@@ -45,7 +45,7 @@ vector<string> getRuntimeYul(vector<string> lines)
 	trim_left(deployedObjName);
 	trim_right(deployedObjName);
 
-	for (size_t i = 1; i != lines.size(); ++i)
+	for (size_t i = 0; i < lines.size(); i++)
 	{
 		string lineCopy = lines[i];
 		// replace(lineCopy.begin(), lineCopy.end(), '\"', '\0');
@@ -102,7 +102,7 @@ vector<string> splitStr(const string& str)
 vector<string> getEndOfOjbect(vector<string> lines)
 {
 	int end = 0;	
-	for (size_t i = 0; i < lines.size(); ++i)
+	for (size_t i = 0; i < lines.size(); i++)
 	{
 		string lineCopy = lines[i];
 		trim_left(lineCopy);
@@ -129,8 +129,8 @@ vector<string> getMainObject(string code, string& main_contract)
 	std::transform(main_contract.begin(), main_contract.end(), main_contract.begin(),
 		[](unsigned char c){ return std::tolower(c); });
 	auto lines = splitStr(code);
-	int start;	
-	for (size_t i = 0; i != lines.size(); ++i)
+	int start = 0;	
+	for (size_t i = 0; i < lines.size(); i++)
 	{
 		string lineCopy = lines[i];
         trim_left(lineCopy);
@@ -139,12 +139,13 @@ vector<string> getMainObject(string code, string& main_contract)
 			[](unsigned char c){ return std::tolower(c); });
 		if (lineCopy.find(main_contract) != string::npos)
 		{
-			start = i;
+			start = int(i) - 1;
 			break;
 		}
 
 	}
-	return getEndOfOjbect(vector<string>(lines.begin() + start, lines.end()));
+	auto res = vector<string>(lines.begin() + start , lines.end());
+	return getEndOfOjbect(res);
 }
 
 string cleanYul(string code, string& main_contract)
