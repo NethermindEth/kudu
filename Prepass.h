@@ -101,7 +101,7 @@ vector<string> splitStr(const string& str)
 
 vector<string> getEndOfOjbect(vector<string> lines)
 {
-	int start;	
+	int end;	
 	for (size_t i = 0; i != lines.size(); ++i)
 	{
 		string lineCopy = lines[i];
