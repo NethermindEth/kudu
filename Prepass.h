@@ -34,9 +34,9 @@ vector<string> removePreamble(vector<string> lines)
 	return vector<string>();
 }
 
-vector<string> getRuntimeYul(vector<string> yul)
+vector<string> getRuntimeYul(vector<string> lines)
 {
-	vector<string> lines = removePreamble(yul);
+	// vector<string> lines = removePreamble(yul);
 	int start = lines[0].find("\"");
 	int end = lines[0].find("\"", start + 1);
 	string objectName = lines[0].substr(start, end - start);
@@ -64,7 +64,7 @@ vector<string> getRuntimeYul(vector<string> yul)
 vector<string> removeDeploymentCode(vector<string> code)
 {
 	vector<string> cleanedCode;
-	int start;	
+	int start = 0;	
 	for (size_t i = 1; i != code.size(); ++i)
 	{
 		string lineCopy = code[i];
@@ -101,8 +101,8 @@ vector<string> splitStr(const string& str)
 
 vector<string> getEndOfOjbect(vector<string> lines)
 {
-	int end;	
-	for (size_t i = 0; i != lines.size(); ++i)
+	int end = 0;	
+	for (size_t i = 0; i < lines.size(); ++i)
 	{
 		string lineCopy = lines[i];
 		trim_left(lineCopy);
@@ -113,6 +113,10 @@ vector<string> getEndOfOjbect(vector<string> lines)
 			break;
 		}
 
+	}
+	if (end == 0)
+	{
+		return lines;
 	}
 	return vector<string>(lines.begin(), lines.begin() + end);
 
