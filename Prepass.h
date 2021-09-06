@@ -109,12 +109,12 @@ vector<string> getEndOfOjbect(vector<string> lines)
 		trim_right(lineCopy);
 		if (lineCopy.find("Optimized IR") != string::npos)
 		{
-			start = i;
+			end = i;
 			break;
 		}
 
 	}
-	return vector<string>(lines.begin(), lines.begin() + start);
+	return vector<string>(lines.begin(), lines.begin() + end);
 
 }
 
