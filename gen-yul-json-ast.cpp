@@ -76,12 +76,14 @@ langutil::CharStream generateIR(char const* sol_filepath)
 
 int main(int argc, char* argv[])
 {
-	if (argc != 2)
+	if (argc != 3)
 	{
-		std::cerr << "USAGE: " << argv[0] << " SOLIDITY-FILE" << std::endl;
+		std::cerr << "USAGE: " << argv[0] << " SOLIDITY-FILE" << "MAIN CONTRACT NAME" << std::endl;
+		std::cerr << "where MAIN CONTRACT NAME is the name of the primary contract" << std::endl;
 		return 1;
 	}
 	char const* sol_filepath = argv[1];
+	string main_contract = argv[2];
 	langutil::CharStream irStream;
 	try
 	{
@@ -93,7 +95,7 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 	string irSource = irStream.source(); 
-	auto yul = cleanYul(irSource);
+	auto yul = cleanYul(irSource, main_contract);
 	langutil::CharStream ir = langutil::CharStream(yul, "bid.yul");
 
 	std::variant<phaser::Program, langutil::ErrorList> maybeProgram

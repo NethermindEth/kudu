@@ -34,9 +34,9 @@ vector<string> removePreamble(vector<string> lines)
 	return vector<string>();
 }
 
-vector<string> getRuntimeYul(vector<string> yulContents)
+vector<string> getRuntimeYul(vector<string> yul)
 {
-	vector<string> lines = removePreamble(yulContents);
+	vector<string> lines = removePreamble(yul);
 	int start = lines[0].find("\"");
 	int end = lines[0].find("\"", start + 1);
 	string objectName = lines[0].substr(start, end - start);
@@ -99,9 +99,53 @@ vector<string> splitStr(const string& str)
 	return strings;
 }
 
-string cleanYul(string code)
+vector<string> getEndOfOjbect(vector<string> lines)
 {
-	auto yul = splitStr(code);
+	int start;	
+	for (size_t i = 0; i != lines.size(); ++i)
+	{
+		string lineCopy = lines[i];
+		trim_left(lineCopy);
+		trim_right(lineCopy);
+		if (lineCopy.find("Optimized IR") != string::npos)
+		{
+			start = i;
+			break;
+		}
+
+	}
+	return vector<string>(lines.begin(), lines.begin() + start);
+
+}
+
+vector<string> getMainObject(string code, string& main_contract)
+{
+	trim_left(main_contract);
+	trim_right(main_contract);
+	std::transform(main_contract.begin(), main_contract.end(), main_contract.begin(),
+		[](unsigned char c){ return std::tolower(c); });
+	auto lines = splitStr(code);
+	int start;	
+	for (size_t i = 0; i != lines.size(); ++i)
+	{
+		string lineCopy = lines[i];
+        trim_left(lineCopy);
+        trim_right(lineCopy);
+		std::transform(lineCopy.begin(), lineCopy.end(), lineCopy.begin(),
+			[](unsigned char c){ return std::tolower(c); });
+		if (lineCopy.find(main_contract) != string::npos)
+		{
+			start = i;
+			break;
+		}
+
+	}
+	return getEndOfOjbect(vector<string>(lines.begin() + start, lines.end()));
+}
+
+string cleanYul(string code, string& main_contract)
+{
+	auto yul = getMainObject(code, main_contract);
 	auto runtimeYul = getRuntimeYul(yul);
 	auto clean = removeDeploymentCode(runtimeYul);
 	string yulStr;
