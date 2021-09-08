@@ -3,6 +3,7 @@
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
+#include <string>
 #include <string_view>
 #include <variant>
 
@@ -37,6 +38,7 @@ string slurpFile(string_view path)
 langutil::CharStream generateIR(char const* sol_filepath)
 {
 	std::string yulOptimiserSteps = frontend::OptimiserSettings::DefaultYulOptimiserSteps;
+	erase(yulOptimiserSteps, 'i'); // remove FullInliner
 	yulOptimiserSteps += " x"; // that flattens function calls: only one
 							   // function call per statement is allowed
 	constexpr int solc_argc = 6;
@@ -94,7 +96,7 @@ int main(int argc, char* argv[])
 		std::cerr << boost::diagnostic_information(exc) << std::endl;
 		return 1;
 	}
-	string irSource = irStream.source(); 
+	string irSource = irStream.source();
 	auto yul = cleanYul(irSource, main_contract);
 	langutil::CharStream ir = langutil::CharStream(yul, sol_filepath);
 

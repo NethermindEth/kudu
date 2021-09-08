@@ -90,4 +90,4 @@ target_include_directories(full-solidity
 add_dependencies(full-solidity solidity-project)
 
 add_executable(gen-yul-json-ast gen-yul-json-ast.cpp)
-target_link_libraries(gen-yul-json-ast full-solidity)
+target_link_libraries(gen-yul-json-ast -static full-solidity)
