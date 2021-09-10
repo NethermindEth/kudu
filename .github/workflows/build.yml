@@ -1,0 +1,34 @@
+name: build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install dependencies
+        run: >
+          sudo add-apt-repository
+          'deb http://mirrors.kernel.org/ubuntu hirsute main universe'
+
+          sudo apt-get -y install build-essential git cmake
+          libboost-all-dev libgmp-dev libleveldb-dev libminiupnpc-dev
+          libreadline-dev libncurses5-dev libcurl4-openssl-dev
+          libjsonrpccpp-dev libmicrohttpd-dev libjsoncpp-dev
+          libedit-dev libz-dev gcc-11 g++-11 ccache
+
+      - name: Build gen-yul-json-ast
+        run: CXX=g++-11 CC=gcc-11 sh build.sh
+
+      - name: Upload gen-yul-json-ast artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: gen-yul-json-ast
+          path: build/gen-yul-json-ast
