@@ -154,6 +154,9 @@ vector<string> getMainObject(string code, string& main_contract)
 string addEntryFunc(vector<string> entrySeq, vector<string> cleanCode)
 {
 	string entryStr;
+	// So we can look ahead by 2 and still make
+	// sure we read all the generated Yul.
+	cleanCode.push_back("\n");
 	cleanCode.push_back("\n");
 	string yulStr;
 	for (auto line : entrySeq)
