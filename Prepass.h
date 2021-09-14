@@ -10,6 +10,7 @@
 using namespace std;
 using namespace boost;
 
+
 bool isRuntimeObj(string str)
 {
     return ((str.find('{')) != string::npos) && 
@@ -61,7 +62,7 @@ vector<string> getRuntimeYul(vector<string> yul)
 	return lines;
 }
 
-vector<string> removeDeploymentCode(vector<string> code)
+std::pair<vector<string>, vector<string>> removeDeploymentCode(vector<string> code)
 {
 	vector<string> cleanedCode;
 	int start = 0;	
@@ -77,8 +78,10 @@ vector<string> removeDeploymentCode(vector<string> code)
 		}
 	}
 	auto onlyDefinitions = vector<string>(code.begin() + start, code.end());
+	auto entrySequence = vector<string>(code.begin() + 3, code.begin() + start);
+	entrySequence.insert(entrySequence.begin(), std::string("\t\t\tfunction fun_ENTRY_POINT()"));
 	onlyDefinitions.insert(onlyDefinitions.begin(), code.begin(), code.begin() + 3);
-	return onlyDefinitions;
+	return std::make_pair(onlyDefinitions,entrySequence);
 }
 
 vector<string> splitStr(const string& str)
@@ -148,17 +151,37 @@ vector<string> getMainObject(string code, string& main_contract)
 	return getEndOfOjbect(res);
 }
 
+string addEntryFunc(vector<string> entrySeq, vector<string> cleanCode)
+{
+	string entryStr;
+	// So we can look ahead by 2 and still make
+	// sure we read all the generated Yul.
+	cleanCode.push_back("\n");
+	cleanCode.push_back("\n");
+	string yulStr;
+	for (auto line : entrySeq)
+	{
+		entryStr += line + "\n";
+	}		
+	for (auto i = 0; i < cleanCode.size() - 2; i++) 
+	{
+		yulStr += cleanCode[i] + "\n";
+		if (cleanCode[i+2].find("data \".metadata\" hex\"") != string::npos)
+		{
+			yulStr += entryStr + "\n";
+		}		
+	}
+	return yulStr;
+}
 string cleanYul(string code, string& main_contract)
 {
 	auto yul = getMainObject(code, main_contract);
 	auto runtimeYul = getRuntimeYul(yul);
-	auto clean = removeDeploymentCode(runtimeYul);
-	string yulStr;
+	vector<string> clean;
+	vector<string> entry;
+	std::tie(clean, entry) = removeDeploymentCode(runtimeYul);
 	auto placeHolder = "\tcode {\n\t\t//holder\n\t}\n";
 	clean.insert(clean.begin()+ 1 , placeHolder);
-	for (auto line : clean)
-	{
-		yulStr += line + "\n";
-	}	
-	return yulStr;
+	auto complete = addEntryFunc(entry, clean);
+	return complete;
 }
