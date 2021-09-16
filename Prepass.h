@@ -1,187 +1,69 @@
 #pragma once
+#include "json.hpp"
 #include <algorithm>
+#include <boost/algorithm/string.hpp>
+#include <boost/throw_exception.hpp>
+#include <cassert>
 #include <cctype>
 #include <iostream>
 #include <locale>
-#include <cassert>
+#include <set>
 #include <vector>
-#include <boost/algorithm/string.hpp>
 
+using json = nlohmann::json;
 using namespace std;
-using namespace boost;
 
-
-bool isRuntimeObj(string str)
+struct FinalizedYul
 {
-    return ((str.find('{')) != string::npos) && 
-        (str.find("object") != string::npos) && 
-        (str.find("_deployed") != string::npos);
-}
+	vector<string> onlyDefinitions;
+	vector<string> entrySequence;
+	int entrySeqEnd;
+};
 
-vector<string> removePreamble(vector<string> lines)
+struct FunctionSigs
 {
-	for (size_t i = 0; i != lines.size(); ++i)	
-	{
-		if (lines[i].find("object") != string::npos)
-		{
-			return vector<string>(lines.begin() + i, lines.end());
-		}
-		else
-		{
-			continue;
-		}
-	}
-	assert(0==1);
-	return vector<string>();
-}
+	vector<string> names;
+	vector<string> parameters;
+};
 
-vector<string> getRuntimeYul(vector<string> yul)
+struct EntrySwitchCases
 {
-	vector<string> lines = removePreamble(yul);
-	int start = lines[0].find("\"");
-	int end = lines[0].find("\"", start + 1);
-	string objectName = lines[0].substr(start, end - start);
-	string deployedObjName = "object " + objectName + "_deployed";
-	// replace(deployedObjName.begin(), deployedObjName.end(), '\"', '\0');
-	trim_left(deployedObjName);
-	trim_right(deployedObjName);
+};
 
-	for (size_t i = 0; i < lines.size(); i++)
-	{
-		string lineCopy = lines[i];
-		// replace(lineCopy.begin(), lineCopy.end(), '\"', '\0');
-        trim_left(lineCopy);
-        trim_right(lineCopy);
-		if (isRuntimeObj(lineCopy))
-		{
-            vector<string> runtimeObj = vector<string>(lines.begin() + i, lines.end());
-            runtimeObj.insert(runtimeObj.begin(), lines[0]);
-            return runtimeObj;
-		}
-	}
-	return lines;
-}
-
-std::pair<vector<string>, vector<string>> removeDeploymentCode(vector<string> code)
+struct Selectors
 {
-	vector<string> cleanedCode;
-	int start = 0;	
-	for (size_t i = 1; i != code.size(); ++i)
-	{
-		string lineCopy = code[i];
-        trim_left(lineCopy);
-        trim_right(lineCopy);
-		if (string(lineCopy.begin(), lineCopy.begin() + 8) == "function")
-		{
-			start = i;
-			break;
-		}
-	}
-	auto onlyDefinitions = vector<string>(code.begin() + start, code.end());
-	auto entrySequence = vector<string>(code.begin() + 3, code.begin() + start);
-	entrySequence.insert(entrySequence.begin(), std::string("\t\t\tfunction fun_ENTRY_POINT()"));
-	onlyDefinitions.insert(onlyDefinitions.begin(), code.begin(), code.begin() + 3);
-	return std::make_pair(onlyDefinitions,entrySequence);
-}
+	vector<string> hashes;
+	vector<string> names;
+};
 
-vector<string> splitStr(const string& str)
+class Prepass
 {
-	vector<string> strings;
+public:
+	string cleanYul(string code, string& main_contract);
+	[[nodiscard]] Prepass(string sol_src, string main_contract, string contractPath);
+	void tester();
 
-	string::size_type pos = 0;
-	string::size_type prev = 0;
-	while ((pos = str.find('\n', prev)) != string::npos)
-	{
-		strings.push_back(str.substr(prev, pos - prev));
-		prev = pos + 1;
-	}
-
-	// To get the last substring (or only, if delimiter is not found)
-	strings.push_back(str.substr(prev));
-
-	return strings;
-}
-
-vector<string> getEndOfOjbect(vector<string> lines)
-{
-	int end = 0;	
-	for (size_t i = 0; i < lines.size(); i++)
-	{
-		string lineCopy = lines[i];
-		trim_left(lineCopy);
-		trim_right(lineCopy);
-		if (lineCopy.find("Optimized IR") != string::npos)
-		{
-			end = i;
-			break;
-		}
-
-	}
-	if (end == 0)
-	{
-		return lines;
-	}
-	return vector<string>(lines.begin(), lines.begin() + end);
-
-}
-
-vector<string> getMainObject(string code, string& main_contract)
-{
-	trim_left(main_contract);
-	trim_right(main_contract);
-	std::transform(main_contract.begin(), main_contract.end(), main_contract.begin(),
-		[](unsigned char c){ return std::tolower(c); });
-	auto lines = splitStr(code);
-	int start = 0;	
-	for (size_t i = 0; i < lines.size(); i++)
-	{
-		string lineCopy = lines[i];
-        trim_left(lineCopy);
-        trim_right(lineCopy);
-		std::transform(lineCopy.begin(), lineCopy.end(), lineCopy.begin(),
-			[](unsigned char c){ return std::tolower(c); });
-		if (lineCopy.find(main_contract) != string::npos)
-		{
-			start = int(i) - 1;
-			break;
-		}
-
-	}
-	auto res = vector<string>(lines.begin() + start , lines.end());
-	return getEndOfOjbect(res);
-}
-
-string addEntryFunc(vector<string> entrySeq, vector<string> cleanCode)
-{
-	string entryStr;
-	// So we can look ahead by 2 and still make
-	// sure we read all the generated Yul.
-	cleanCode.push_back("\n");
-	cleanCode.push_back("\n");
-	string yulStr;
-	for (auto line : entrySeq)
-	{
-		entryStr += line + "\n";
-	}		
-	for (auto i = 0; i < cleanCode.size() - 2; i++) 
-	{
-		yulStr += cleanCode[i] + "\n";
-		if (cleanCode[i+2].find("data \".metadata\" hex\"") != string::npos)
-		{
-			yulStr += entryStr + "\n";
-		}		
-	}
-	return yulStr;
-}
-string cleanYul(string code, string& main_contract)
-{
-	auto yul = getMainObject(code, main_contract);
-	auto runtimeYul = getRuntimeYul(yul);
-	vector<string> clean;
-	vector<string> entry;
-	std::tie(clean, entry) = removeDeploymentCode(runtimeYul);
-	auto placeHolder = "\tcode {\n\t\t//holder\n\t}\n";
-	clean.insert(clean.begin()+ 1 , placeHolder);
-	auto complete = addEntryFunc(entry, clean);
-	return complete;
-}
+private:
+	string exec(string cmdStr);
+	string getFunctionName(string functionSig);
+	vector<string> splitStr(const string& str);
+	bool isRuntimeObj(string str);
+	vector<string> removePreamble(vector<string> lines);
+	vector<string> getRuntimeYul(vector<string> yul);
+	FinalizedYul removeDeploymentCode(vector<string> code);
+	vector<string> cleanEntryFunction(vector<string> func, int funcEnd);
+	int getSwitchStart(const vector<string>& func);
+	vector<string> getEndOfOjbect(vector<string> lines);
+	vector<string> getMainObject(string code, string& main_contract);
+	std::pair<int, int> getFuncSigRange(vector<string> lines, int start);
+	void getPublicFunctions();
+	string markDynamicFunctions(string solidity_src);
+	string addEntryFunc(vector<string> entrySeq, vector<string> cleanCode);
+	string m_unMarkedSolSource;
+	string m_markedSolSource;
+	string m_contractPath;
+	vector<string> m_solSrcLines_mainContract;
+	vector<string> m_solSrcLines_full;
+	Selectors m_selectors;
+	FunctionSigs m_functionSigs;
+};

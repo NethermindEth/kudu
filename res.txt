@@ -1,0 +1,4 @@
+decimals
+totalSupply
+balanceOf
+allowance

@@ -5,7 +5,7 @@ project(warp_solidity
 
 set(CMAKE_CXX_STANDARD 20)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -O3")
 
 include(FetchContent)
 
@@ -89,5 +89,14 @@ target_include_directories(full-solidity
          INTERFACE ${solidity_SOURCE_DIR} ${solidity_BINARY_DIR}/deps/include)
 add_dependencies(full-solidity solidity-project)
 
+set (WARP_LIBS Prepass.h Prepass.cpp json.hpp WarpVisitor.h library.h StorageVariables.hpp StorageVariables.cpp)
+        
+add_library(warp-solidity ${WARP_LIBS})
+add_dependencies(warp-solidity solidity-project)
+target_include_directories(warp-solidity
+        PUBLIC ${solidity_SOURCE_DIR} ${solidity_BINARY_DIR}/deps/include)
+target_link_libraries(warp-solidity full-solidity)
+
+
 add_executable(gen-yul-json-ast gen-yul-json-ast.cpp)
-target_link_libraries(gen-yul-json-ast -static full-solidity)
+target_link_libraries(gen-yul-json-ast warp-solidity)
