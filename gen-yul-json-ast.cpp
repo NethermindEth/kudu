@@ -1,72 +1,72 @@
-#include <boost/exception/diagnostic_information.hpp>
-#include <boost/throw_exception.hpp>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
 #include <string>
-#include <string_view>
-#include <variant>
 
 #include <liblangutil/CharStreamProvider.h>
-#include <liblangutil/SourceReferenceFormatter.h>
-#include <libsolidity/interface/OptimiserSettings.h>
 #include <libyul/AST.h>
 #include <libyul/AsmJsonConverter.h>
 #include <solc/CommandLineInterface.h>
 #include <tools/yulPhaser/Program.h>
 
-#include "Prepass.h"
-#include "WarpVisitor.h"
-#include "StorageVariables.hpp"
+// #include "Prepass.hpp"
+#include "WarpVisitor.hpp"
 
-using namespace solidity;
-using namespace solidity::util;
-using namespace solidity::langutil;
 
-using namespace solidity::frontend;
-using namespace std;
-vector<string> splitStr(const string& str);
+std::vector<std::string> splitStr(const std::string& str);
 
+std::string slurpFile(std::string_view path)
+{
+	constexpr size_t BUF_SIZE = 4096;
+
+	std::string	  result;
+	std::ifstream is{path.data()};
+	is.exceptions(std::ifstream::badbit);
+	std::string buf(BUF_SIZE, '\0');
+	while (is.read(buf.data(), BUF_SIZE))
+		result.append(buf, 0, is.gcount());
+	result.append(buf, 0, is.gcount());
+
+	return result;
+}
 
 
 int main(int argc, char* argv[])
 {
 	if (argc != 3)
 	{
-		std::cerr << "USAGE: " << argv[0] << " SOLIDITY-FILE " << "MAIN-CONTRACT-NAME" << std::endl;
-		std::cerr << "Where MAIN-CONTRACT-NAME is the name of the primary contract (non-interface,  non-library, non-abstract contract)" << std::endl;
+		std::cerr << "USAGE: " << argv[0] << " SOLIDITY-FILE "
+				  << "MAIN-CONTRACT-NAME" << std::endl;
+		std::cerr << "Where MAIN-CONTRACT-NAME is the name of the primary contract "
+					 "(non-interface,  non-library, non-abstract contract)"
+				  << std::endl;
 		return 1;
 	}
-	char const* sol_filepath = argv[1];
-	string sol_src = slurpFile(sol_filepath);
-	string main_contract = argv[2];
-	StorageVars storageVars(sol_filepath);
-	for (auto var : storageVars.m_storageVars_str)
-	{
-		cout << var << endl;
-	}
+	char const* sol_filepath  = argv[1];
+	std::string sol_src		  = slurpFile(sol_filepath);
+	std::string main_contract = argv[2];
+
 	// auto prepass = Prepass(sol_src, main_contract, sol_filepath);
 	// prepass.tester();
 
-	// langutil::ErrorList errors;
-	// langutil::ErrorReporter errorReporter{errors};
-	// frontend::Parser parser{errorReporter, langutil::EVMVersion()};
+	solidity::langutil::ErrorList	  errors;
+	solidity::langutil::ErrorReporter errorReporter{errors};
+	solidity::frontend::Parser parser{errorReporter, solidity::langutil::EVMVersion()};
 
 
-	// string contractContents = slurpFile(sol_filepath);
-	// langutil::CharStream charStream{contractContents, sol_filepath};
-	// auto sourceUnit = parser.parse(charStream);
+	std::string					   contractContents = slurpFile(sol_filepath);
+	solidity::langutil::CharStream charStream{contractContents, sol_filepath};
+	auto						   sourceUnit = parser.parse(charStream);
 
-	// SolFunctionVisitor funcVisitor(contractContents, sol_filepath);
-	// sourceUnit->accept(funcVisitor);
-	// sourceUnit->accept(funcVisitor);
-	// cout << funcVisitor.m_publicFunctions.hashes.size() << endl;
-	// cout << funcVisitor.m_publicFunctions.names.size() << endl;
-	// cout << funcVisitor.m_publicFunctions.parameters.size() << endl;
-	// for (auto name : funcVisitor.m_storage_vars)
-	// {
-	// 	cout << name.first << endl;
-	// }
+	WarpVisitor funcVisitor(main_contract, contractContents, sol_filepath);
+	sourceUnit->accept(funcVisitor);
+	funcVisitor.removeDuplicates();
+	funcVisitor.getDynFunctions();
+	funcVisitor.markDynFunctions();
+	for (auto i : funcVisitor.m_publicFunctions.sigs)
+	{
+		std::cout << i << std::endl;
+	}
 	// auto yul = prepass.cleanYul(irSource, main_contract);
 	// auto res = exec("solc --hashes ERC20.sol");
 	// auto res2 = string(res.begin() + res.rfind("=") + 1, res.end());

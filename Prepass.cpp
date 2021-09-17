@@ -1,12 +1,11 @@
-
-#include "Prepass.h"
+#include "Prepass.hpp"
+#include "library.hpp"
 #include <set>
 #include <sstream>
 
-using namespace std;
 using namespace boost;
 
-Prepass::Prepass(string sol_src, string main_contract, string contractPath)
+Prepass::Prepass(std::string sol_src, std::string main_contract, std::string contractPath)
 {
 	this->m_contractPath = contractPath;
 	auto lines = splitStr(sol_src);
@@ -14,9 +13,9 @@ Prepass::Prepass(string sol_src, string main_contract, string contractPath)
 	search << "contract " << main_contract;
 	for (auto i = 0; i < lines.size(); ++i)
 	{
-		if (lines[i].find(search.str()) != string::npos)
+		if (lines[i].find(search.str()) != std::string::npos)
 		{
-			this->m_solSrcLines_mainContract = vector<string>(lines.begin() + i, lines.end());
+			this->m_solSrcLines_mainContract = std::vector<std::string>(lines.begin() + i, lines.end());
 			break;
 		}
 	}
@@ -27,9 +26,9 @@ Prepass::Prepass(string sol_src, string main_contract, string contractPath)
 	// }
 }
 
-bool isFunctionSig(string line)
+bool isFunctionSig(std::string line)
 {
-	if (line.find("function ") != string::npos and line.find("(") != string::npos)
+	if (line.find("function ") != std::string::npos and line.find("(") != std::string::npos)
 	{
 		return true;
 	}
@@ -44,16 +43,17 @@ void Prepass::tester()
 		if (isFunctionSig(m_solSrcLines_mainContract[i]))
 		{
 			int start, end;
-			auto lines = vector<string>(m_solSrcLines_mainContract.begin() + i, m_solSrcLines_mainContract.end());
+			auto lines
+				= std::vector<std::string>(m_solSrcLines_mainContract.begin() + i, m_solSrcLines_mainContract.end());
 			std::tie(start, end) = getFuncSigRange(lines, i);
 		}
 	}
 }
-std::pair<int, int> Prepass::getFuncSigRange(vector<string> lines, int start)
+std::pair<int, int> Prepass::getFuncSigRange(std::vector<std::string> lines, int start)
 {
 	for (auto i = 0; i < lines.size(); ++i)
 	{
-		if (lines[i].find("{") != string::npos)
+		if (lines[i].find("{") != std::string::npos)
 		{
 			return std::make_pair(start, start + i);
 		}
@@ -61,11 +61,11 @@ std::pair<int, int> Prepass::getFuncSigRange(vector<string> lines, int start)
 	BOOST_THROW_EXCEPTION(std::runtime_error{"Failed to find end of function signature"});
 }
 
-string Prepass::exec(string cmdStr)
+std::string Prepass::exec(std::string cmdStr)
 {
 	const char* cmd = cmdStr.c_str();
 	std::array<char, 4096> buffer;
-	string result;
+	std::string result;
 	std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
 	if (!pipe)
 	{
@@ -78,14 +78,14 @@ string Prepass::exec(string cmdStr)
 	return result;
 }
 
-string Prepass::getFunctionName(string funcSig)
+std::string Prepass::getFunctionName(std::string funcSig)
 {
 	auto paramsStart = funcSig.find('(');
 	auto paramsEnd = funcSig.find(')');
 	auto safetyCheckLPAREN = std::count(funcSig.begin(), funcSig.begin() + paramsEnd, '(');
 	auto safetyCheckRPAREN = std::count(funcSig.begin(), funcSig.begin() + paramsEnd, ')');
 	assert(safetyCheckRPAREN + safetyCheckLPAREN == 2);
-	return string(funcSig.begin(), funcSig.begin() + paramsStart);
+	return std::string(funcSig.begin(), funcSig.begin() + paramsStart);
 }
 
 void Prepass::getPublicFunctions()
@@ -111,21 +111,21 @@ void Prepass::getPublicFunctions()
 }
 
 
-string Prepass::markDynamicFunctions(string solidity_src) {}
+std::string Prepass::markDynamicFunctions(std::string solidity_src) {}
 
-bool Prepass::isRuntimeObj(string str)
+bool Prepass::isRuntimeObj(std::string str)
 {
-	return ((str.find('{')) != string::npos) && (str.find("object") != string::npos)
-		   && (str.find("_deployed") != string::npos);
+	return ((str.find('{')) != std::string::npos) && (str.find("object") != std::string::npos)
+		   && (str.find("_deployed") != std::string::npos);
 }
 
-vector<string> Prepass::removePreamble(vector<string> lines)
+std::vector<std::string> Prepass::removePreamble(std::vector<std::string> lines)
 {
 	for (size_t i = 0; i != lines.size(); ++i)
 	{
-		if (lines[i].find("object") != string::npos)
+		if (lines[i].find("object") != std::string::npos)
 		{
-			return vector<string>(lines.begin() + i, lines.end());
+			return std::vector<std::string>(lines.begin() + i, lines.end());
 		}
 		else
 		{
@@ -133,29 +133,29 @@ vector<string> Prepass::removePreamble(vector<string> lines)
 		}
 	}
 	assert(0 == 1);
-	return vector<string>();
+	return std::vector<std::string>();
 }
 
-vector<string> Prepass::getRuntimeYul(vector<string> yul)
+std::vector<std::string> Prepass::getRuntimeYul(std::vector<std::string> yul)
 {
-	vector<string> lines = removePreamble(yul);
+	std::vector<std::string> lines = removePreamble(yul);
 	int start = lines[0].find("\"");
 	int end = lines[0].find("\"", start + 1);
-	string objectName = lines[0].substr(start, end - start);
-	string deployedObjName = "object " + objectName + "_deployed";
+	std::string objectName = lines[0].substr(start, end - start);
+	std::string deployedObjName = "object " + objectName + "_deployed";
 	// replace(deployedObjName.begin(), deployedObjName.end(), '\"', '\0');
 	trim_left(deployedObjName);
 	trim_right(deployedObjName);
 
-	for (size_t i = 0; i < lines.size(); i++)
+	for (std::size_t i = 0; i < lines.size(); i++)
 	{
-		string lineCopy = lines[i];
+		std::string lineCopy = lines[i];
 		// replace(lineCopy.begin(), lineCopy.end(), '\"', '\0');
 		trim_left(lineCopy);
 		trim_right(lineCopy);
 		if (isRuntimeObj(lineCopy))
 		{
-			vector<string> runtimeObj = vector<string>(lines.begin() + i, lines.end());
+			std::vector<std::string> runtimeObj = std::vector<std::string>(lines.begin() + i, lines.end());
 			runtimeObj.insert(runtimeObj.begin(), lines[0]);
 			return runtimeObj;
 		}
@@ -164,23 +164,23 @@ vector<string> Prepass::getRuntimeYul(vector<string> yul)
 }
 
 
-FinalizedYul Prepass::removeDeploymentCode(vector<string> code)
+FinalizedYul Prepass::removeDeploymentCode(std::vector<std::string> code)
 {
-	vector<string> cleanedCode;
+	std::vector<std::string> cleanedCode;
 	int start = 0;
-	for (size_t i = 1; i != code.size(); ++i)
+	for (std::size_t i = 1; i != code.size(); ++i)
 	{
-		string lineCopy = code[i];
+		std::string lineCopy = code[i];
 		trim_left(lineCopy);
 		trim_right(lineCopy);
-		if (string(lineCopy.begin(), lineCopy.begin() + 8) == "function")
+		if (std::string(lineCopy.begin(), lineCopy.begin() + 8) == "function")
 		{
 			start = i;
 			break;
 		}
 	}
-	auto onlyDefinitions = vector<string>(code.begin() + start, code.end());
-	auto entrySequence = vector<string>(code.begin() + 3, code.begin() + start);
+	auto onlyDefinitions = std::vector<std::string>(code.begin() + start, code.end());
+	auto entrySequence = std::vector<std::string>(code.begin() + 3, code.begin() + start);
 	int entrySeqEnd = std::distance(code.begin() + 3, code.begin() + start);
 	entrySequence.insert(entrySequence.begin(), std::string("\t\t\tfunction fun_ENTRY_POINT()"));
 	onlyDefinitions.insert(onlyDefinitions.begin(), code.begin(), code.begin() + 3);
@@ -189,15 +189,15 @@ FinalizedYul Prepass::removeDeploymentCode(vector<string> code)
 
 struct EntrySeqData
 {
-	vector<string> preSwitchDeclrs;
+	std::vector<std::string> preSwitchDeclrs;
 	int switchStart;
 };
 
-int Prepass::getSwitchStart(const vector<string>& func)
+int Prepass::getSwitchStart(const std::vector<std::string>& func)
 {
 	for (auto i = 0; i < func.size(); ++i)
 	{
-		if (func[i].find("switch _") != string::npos)
+		if (func[i].find("switch _") != std::string::npos)
 		{
 			return i;
 		}
@@ -205,7 +205,7 @@ int Prepass::getSwitchStart(const vector<string>& func)
 	BOOST_THROW_EXCEPTION(std::runtime_error{"failed to find the start of switch statement"});
 }
 
-vector<string> Prepass::cleanEntryFunction(vector<string> func, int funcEnd)
+std::vector<std::string> Prepass::cleanEntryFunction(std::vector<std::string> func, int funcEnd)
 {
 	EntrySeqData entrySeqData;
 	entrySeqData.switchStart = getSwitchStart(func);
@@ -214,33 +214,15 @@ vector<string> Prepass::cleanEntryFunction(vector<string> func, int funcEnd)
 	}
 }
 
-vector<string> Prepass::splitStr(const string& str)
-{
-	vector<string> strings;
-
-	string::size_type pos = 0;
-	string::size_type prev = 0;
-	while ((pos = str.find('\n', prev)) != string::npos)
-	{
-		strings.push_back(str.substr(prev, pos - prev));
-		prev = pos + 1;
-	}
-
-	// To get the last substring (or only, if delimiter is not found)
-	strings.push_back(str.substr(prev));
-
-	return strings;
-}
-
-vector<string> Prepass::getEndOfOjbect(vector<string> lines)
+std::vector<std::string> Prepass::getEndOfOjbect(std::vector<std::string> lines)
 {
 	int end = 0;
-	for (size_t i = 0; i < lines.size(); i++)
+	for (std::size_t i = 0; i < lines.size(); i++)
 	{
-		string lineCopy = lines[i];
+		std::string lineCopy = lines[i];
 		trim_left(lineCopy);
 		trim_right(lineCopy);
-		if (lineCopy.find("Optimized IR") != string::npos)
+		if (lineCopy.find("Optimized IR") != std::string::npos)
 		{
 			end = i;
 			break;
@@ -250,10 +232,10 @@ vector<string> Prepass::getEndOfOjbect(vector<string> lines)
 	{
 		return lines;
 	}
-	return vector<string>(lines.begin(), lines.begin() + end);
+	return std::vector<std::string>(lines.begin(), lines.begin() + end);
 }
 
-vector<string> Prepass::getMainObject(string code, string& main_contract)
+std::vector<std::string> Prepass::getMainObject(std::string code, std::string& main_contract)
 {
 	trim_left(main_contract);
 	trim_right(main_contract);
@@ -264,31 +246,31 @@ vector<string> Prepass::getMainObject(string code, string& main_contract)
 		[](unsigned char c) { return std::tolower(c); });
 	auto lines = splitStr(code);
 	int start = 0;
-	for (size_t i = 0; i < lines.size(); i++)
+	for (std::size_t i = 0; i < lines.size(); i++)
 	{
-		string lineCopy = lines[i];
+		std::string lineCopy = lines[i];
 		trim_left(lineCopy);
 		trim_right(lineCopy);
 		std::transform(
 			lineCopy.begin(), lineCopy.end(), lineCopy.begin(), [](unsigned char c) { return std::tolower(c); });
-		if (lineCopy.find(main_contract) != string::npos)
+		if (lineCopy.find(main_contract) != std::string::npos)
 		{
 			start = int(i) - 1;
 			break;
 		}
 	}
-	auto res = vector<string>(lines.begin() + start, lines.end());
+	auto res = std::vector<std::string>(lines.begin() + start, lines.end());
 	return getEndOfOjbect(res);
 }
 
-string Prepass::addEntryFunc(vector<string> entrySeq, vector<string> cleanCode)
+std::string Prepass::addEntryFunc(std::vector<std::string> entrySeq, std::vector<std::string> cleanCode)
 {
-	string entryStr;
+	std::string entryStr;
 	// So we can look ahead by 2 and still make
 	// sure we read all the generated Yul.
 	cleanCode.push_back("\n");
 	cleanCode.push_back("\n");
-	string yulStr;
+	std::string yulStr;
 	for (auto line: entrySeq)
 	{
 		entryStr += line + "\n";
@@ -297,19 +279,19 @@ string Prepass::addEntryFunc(vector<string> entrySeq, vector<string> cleanCode)
 	for (auto i = 0; i < cleanCode.size() - 2; i++)
 	{
 		yulStr += cleanCode[i] + "\n";
-		if (cleanCode[i + 2].find("data \".metadata\" hex\"") != string::npos)
+		if (cleanCode[i + 2].find("data \".metadata\" hex\"") != std::string::npos)
 		{
 			yulStr += entryStr + "\n";
 		}
 	}
 	return yulStr;
 }
-string Prepass::cleanYul(string code, string& main_contract)
+std::string Prepass::cleanYul(std::string code, std::string& main_contract)
 {
 	auto yul = getMainObject(code, main_contract);
 	auto runtimeYul = getRuntimeYul(yul);
-	vector<string> clean;
-	vector<string> entry;
+	std::vector<std::string> clean;
+	std::vector<std::string> entry;
 	FinalizedYul finalYul = removeDeploymentCode(runtimeYul);
 	clean = finalYul.onlyDefinitions;
 	entry = finalYul.entrySequence;

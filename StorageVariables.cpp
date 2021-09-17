@@ -1,14 +1,15 @@
 #include "StorageVariables.hpp"
 
-StorageVars::StorageVars(const char* sol_filepath)
+StorageVars::StorageVars(std::string main_contract, const char* sol_filepath)
 {
+	m_contractDef = main_contract;
     m_storageVars_str = getStorageVars(sol_filepath);
 }
 
-frontend::CommandLineInterface StorageVars::getCli(char const* sol_filepath)
+solidity::frontend::CommandLineInterface StorageVars::getCli(char const* sol_filepath)
 {
-	std::string yulOptimiserSteps = frontend::OptimiserSettings::DefaultYulOptimiserSteps;
-	erase(yulOptimiserSteps, 'i'); // remove FullInliner
+	std::string yulOptimiserSteps = solidity::frontend::OptimiserSettings::DefaultYulOptimiserSteps;
+	std::erase(yulOptimiserSteps, 'i'); // remove FullInliner
 	yulOptimiserSteps += " x"; // that flattens function calls: only one
 							   // function call per statement is allowed
 	constexpr int solc_argc = 2;
@@ -19,7 +20,7 @@ frontend::CommandLineInterface StorageVars::getCli(char const* sol_filepath)
 
 	std::istringstream sin; // never used, but the CLI requires it
 	std::ostringstream sout;
-	frontend::CommandLineInterface cli{sin, sout, std::cerr};
+	solidity::frontend::CommandLineInterface cli{sin, sout, std::cerr};
 	if (not cli.parseArguments(solc_argc, solc_argv))
 		BOOST_THROW_EXCEPTION(std::runtime_error{"solc CLI failed to parse arguments"});
 	if (not cli.readInputFiles())
@@ -28,13 +29,20 @@ frontend::CommandLineInterface StorageVars::getCli(char const* sol_filepath)
 	return cli;
 }
 
-vector<string> StorageVars::getStorageVars(const char* sol_filepath)
+std::vector<std::string> StorageVars::getStorageVars(const char* sol_filepath)
 {
     auto cli = getCli(sol_filepath);
+	auto paths = cli.options().input.paths;
+	// For now we are only supporting single files;
+	for (auto p : paths)
+	{
+		this->m_baseFileName = p.filename();
+	}
+
     solidity::frontend::FileReader m_fileReader = std::move(cli.fileReader());
 
-	auto m_compiler = make_unique<CompilerStack>(m_fileReader.reader());
-	CommandLineOptions m_options = cli.options();
+	auto m_compiler = make_unique<solidity::frontend::CompilerStack>(m_fileReader.reader());
+	solidity::frontend::CommandLineOptions m_options = cli.options();
 	if (m_options.metadata.literalSources)
 		m_compiler->useMetadataLiteralSources(true);
 	m_compiler->setMetadataHash(m_options.metadata.hash);
@@ -50,7 +58,7 @@ vector<string> StorageVars::getStorageVars(const char* sol_filepath)
 	m_compiler->enableIRGeneration(m_options.compiler.outputs.ir || m_options.compiler.outputs.irOptimized);
 	m_compiler->enableEwasmGeneration(m_options.compiler.outputs.ewasm);
 
-	OptimiserSettings settings = m_options.optimizer.enabled ? OptimiserSettings::standard() : OptimiserSettings::minimal();
+	solidity::frontend::OptimiserSettings settings = m_options.optimizer.enabled ? solidity::frontend::OptimiserSettings::standard() : solidity::frontend::OptimiserSettings::minimal();
 	if (m_options.optimizer.expectedExecutionsPerDeployment.has_value())
 		settings.expectedExecutionsPerDeployment = m_options.optimizer.expectedExecutionsPerDeployment.value();
 	if (m_options.optimizer.noOptimizeYul)
@@ -65,8 +73,10 @@ vector<string> StorageVars::getStorageVars(const char* sol_filepath)
 	m_compiler->parse();
 	m_compiler->analyze();
 	// bool successful = m_compiler->compile(m_options.output.stopAfter);
-    vector<string> storageVars;    
-	auto stateVars = m_compiler->contractDefinition("ERC20.sol:WARP").stateVariables();
+    std::vector<std::string> storageVars;    
+	std::ostringstream		 contractDefinition;
+	contractDefinition << m_baseFileName.string() << ":" << m_contractDef;
+	auto stateVars = m_compiler->contractDefinition(contractDefinition.str()).stateVariables();
 	m_storageVars_astNodes = stateVars;
     for (auto var : stateVars)
     {
