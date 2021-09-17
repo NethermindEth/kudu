@@ -25,4 +25,3 @@ std::vector<std::string> splitStr(const std::string& str)
 
 	return strings;
 }
-

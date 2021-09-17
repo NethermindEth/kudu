@@ -1,12 +1,28 @@
 #include "WarpVisitor.hpp"
-#include "library.hpp"
+#include <boost/algorithm/string.hpp>
+#include <libsolutil/IndentedWriter.h>
+#include <regex>
+
+
+std::string str_repace(std::string find, std::string replace, std::string str)
+{
+	auto str_copy = str;
+	size_t index = 0;
+	auto size = replace.size();
+	index	  = str_copy.find(find, index);
+	if (index == std::string::npos)
+		return str_copy;
+	str_copy.replace(index, size, replace);
+	index += size;
+	return str_copy;
+}
 
 
 void WarpVisitor::processChanges()
 {
-	this->removeDuplicates();
-	this->getDynFunctions();
-	this->markDynFunctions();
+	// this->removeDuplicates();
+	// 	this->getDynFunctions();
+	// 	this->markDynFunctions();
 }
 
 void WarpVisitor::removeDuplicates()
@@ -87,10 +103,11 @@ void WarpVisitor::getDynFunctions()
 	{
 		if (hasDynamicArgs(m_publicFunctions.sigs[i]))
 		{
-			auto sig  = m_publicFunctions.sigs[i];
-			auto end  = sig.find('(');
-			auto rest = sig.rfind(')');
-			auto name = std::string(sig.begin(), sig.begin() + end);
+			auto sig		= m_publicFunctions.sigs[i];
+			auto end		= sig.find('(');
+			auto rest		= sig.rfind(')');
+			auto name		= std::string(sig.begin(), sig.begin() + end);
+			auto markedName = name + "_dynArgs";
 			auto markedSig
 				= name + "_dynArgs" + "(" + std::string(sig.begin() + 1 + end, sig.end());
 			m_publicFunctions.markedSigs.emplace_back(markedSig);
@@ -100,30 +117,28 @@ void WarpVisitor::getDynFunctions()
 }
 
 
-void WarpVisitor::markDynFunctions()
+void WarpVisitor::markDynFunctions(std::string find, std::string replace)
 {
-	assert(m_publicFunctions.sigsToReplace.size() == m_publicFunctions.markedSigs.size());
-	for (auto i = 0; i < m_publicFunctions.sigsToReplace.size(); i++)
+	size_t index = 0;
+	while (true)
 	{
-		auto   search  = m_publicFunctions.sigsToReplace[i];
-		auto   replace = m_publicFunctions.markedSigs[i];
-		size_t index   = 0;
-		while (true)
-		{
-			auto size = replace.size();
-			/* Locate the substring to replace. */
-			index = m_src.find(search, index);
-			if (index == std::string::npos)
-				break;
+		auto size = replace.size();
+		/* Locate the substring to replace. */
+		index = m_src.find(find, index);
+		if (index == std::string::npos)
+			break;
 
-			/* Make the replacement. */
-			m_src.replace(index, size, replace);
+		/* Make the replacement. */
+		m_src.replace(index, size, replace);
 
-			/* Advance index forward so the next iteration doesn't pick it up as well. */
-			index += size;
-		}
+		/* Advance index forward so the next iteration doesn't pick it up as well. */
+		index += size;
 	}
+	solidity::util::IndentedWriter txt;
+	txt.add(m_src);
+	m_src = txt.format();
 }
+
 
 bool WarpVisitor::visitNode(solidity::frontend::ASTNode const& node)
 {
@@ -138,20 +153,28 @@ bool WarpVisitor::visitNode(solidity::frontend::ASTNode const& node)
 	{
 		if (isPublic(_node.visibility()))
 		{
-			m_publicFunctionCount++;
-			int			paramsStart	  = _node.parameterList().location().start + 1;
-			int			paramsEnd	  = _node.parameterList().location().end - 1;
-			int			functionStart = _node.location().start;
-			int			functionEnd	  = _node.location().end;
-			auto		funcLocation  = std::make_pair(functionStart, functionEnd);
+			int	 paramsStart   = _node.parameterList().location().start + 1;
+			int	 paramsEnd	   = _node.parameterList().location().end - 1;
+			int	 functionStart = _node.location().start;
+			int	 functionEnd   = _node.location().end;
+			int	 bodyStart	   = _node.body().location().start;
+			int	 bodyEnd	   = _node.body().location().end;
+			auto body
+				= std::string(m_src.begin() + bodyStart + 1, m_src.begin() + bodyEnd);
+			auto		funcLocation = std::make_pair(functionStart, functionEnd);
 			std::string params
 				= std::string(m_src.begin() + paramsStart, m_src.begin() + paramsEnd);
-			if (not contains_warp(m_storageVars, _node.name()))
+			if (not contains_warp(m_storageVars, _node.name()) and hasDynamicArgs(params))
 			{
-				this->m_publicFunctions.names.emplace_back(_node.name());
-				this->m_publicFunctions.parameters.emplace_back(params);
-				this->m_publicFunctions.sigs.emplace_back(
-					_node.name() + "(" + params + ")");
+				auto sig = std::string(
+					m_src.begin() + _node.location().start + 9,
+					m_src.begin() + _node.body().location().start);
+				auto markedName = _node.name() + "_dynArgs";
+				auto markedSig = markedName + std::string(sig.begin() + sig.find('('), sig.end()) + "{\n";
+				markDynFunctions(sig, markedSig);
+				// this->m_publicFunctions.names.emplace_back(_node.name());
+				// this->m_publicFunctions.parameters.emplace_back(params);
+				// this->m_publicFunctions.sigs.emplace_back(sig);
 			}
 		}
 		return visitNode(_node);

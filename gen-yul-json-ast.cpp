@@ -4,16 +4,15 @@
 #include <string>
 
 #include <liblangutil/CharStreamProvider.h>
+#include <liblangutil/SourceReferenceFormatter.h>
 #include <libyul/AST.h>
 #include <libyul/AsmJsonConverter.h>
 #include <solc/CommandLineInterface.h>
 #include <tools/yulPhaser/Program.h>
 
-// #include "Prepass.hpp"
+#include "Prepass.hpp"
 #include "WarpVisitor.hpp"
 
-
-std::vector<std::string> splitStr(const std::string& str);
 
 std::string slurpFile(std::string_view path)
 {
@@ -30,25 +29,26 @@ std::string slurpFile(std::string_view path)
 	return result;
 }
 
-langutil::CharStream generateIR(char const* sol_filepath)
+solidity::langutil::CharStream generateIR(char const* sol_filepath)
 {
-	std::string yulOptimiserSteps = frontend::OptimiserSettings::DefaultYulOptimiserSteps;
+	std::string yulOptimiserSteps
+		= solidity::frontend::OptimiserSettings::DefaultYulOptimiserSteps;
 	erase(yulOptimiserSteps, 'i'); // remove FullInliner
-	yulOptimiserSteps += " x"; // that flattens function calls: only one
-							   // function call per statement is allowed
-	constexpr int solc_argc = 6;
-	char const* solc_argv[solc_argc] = {
-		"irToJson",
-		"--optimize",
-		"--ir-optimized",
-		"--yul-optimizations",
-		yulOptimiserSteps.c_str(),
-		sol_filepath,
-	};
+	yulOptimiserSteps += " x";	   // that flattens function calls: only one
+								   // function call per statement is allowed
+	constexpr int solc_argc			   = 6;
+	char const*	  solc_argv[solc_argc] = {
+		  "irToJson",
+		  "--optimize",
+		  "--ir-optimized",
+		  "--yul-optimizations",
+		  yulOptimiserSteps.c_str(),
+		  sol_filepath,
+	  };
 
-	std::istringstream sin; // never used, but the CLI requires it
-	std::ostringstream sout;
-	frontend::CommandLineInterface cli{sin, sout, std::cerr};
+	std::istringstream						 sin; // never used, but the CLI requires it
+	std::ostringstream						 sout;
+	solidity::frontend::CommandLineInterface cli{sin, sout, std::cerr};
 	if (not cli.parseArguments(solc_argc, solc_argv))
 		BOOST_THROW_EXCEPTION(std::runtime_error{"solc CLI failed to parse arguments"});
 	if (not cli.readInputFiles())
@@ -58,17 +58,18 @@ langutil::CharStream generateIR(char const* sol_filepath)
 	if (not cli.actOnInput())
 		BOOST_THROW_EXCEPTION(std::runtime_error{"solc failed to act on input"});
 
-	std::string_view ir = sout.view();
+	std::string_view		   ir		 = sout.view();
 	constexpr std::string_view IR_HEADER = "Optimized IR:";
 	if (ir.substr(0, IR_HEADER.size()) != IR_HEADER)
 	{
 		std::ostringstream es;
-		es << "Expected '" << IR_HEADER << "' header in solc IR output but not found" << std::endl;
+		es << "Expected '" << IR_HEADER << "' header in solc IR output but not found"
+		   << std::endl;
 		BOOST_THROW_EXCEPTION(std::runtime_error{es.str()});
 	}
 	ir.remove_prefix(IR_HEADER.size());
 
-	return langutil::CharStream{ir.data(), "ir_stream"};
+	return solidity::langutil::CharStream{ir.data(), "ir_stream"};
 }
 
 
@@ -83,60 +84,59 @@ int main(int argc, char* argv[])
 				  << std::endl;
 		return 1;
 	}
-	char const* sol_filepath  = argv[1];
-	std::string sol_src		  = slurpFile(sol_filepath);
-	std::string main_contract = argv[2];
 
-	// auto prepass = Prepass(sol_src, main_contract, sol_filepath);
-	// prepass.tester();
+	char const* sol_filepath	 = argv[1];
+	std::string main_contract	 = argv[2];
+	std::string contractContents = slurpFile(sol_filepath);
 
+	// =============== Solidity pre-pass ===============
+	solidity::langutil::CharStream	  charStream{contractContents, sol_filepath};
 	solidity::langutil::ErrorList	  errors;
 	solidity::langutil::ErrorReporter errorReporter{errors};
 	solidity::frontend::Parser parser{errorReporter, solidity::langutil::EVMVersion()};
 
+	auto		sourceUnit = parser.parse(charStream);
+	WarpVisitor warpVisitor(main_contract, contractContents, sol_filepath);
+	sourceUnit->accept(warpVisitor);
+	// Write process solidity back to file
+	std::fstream solFile;
+	solFile.open(sol_filepath, std::ios::out | std::ios::trunc);
+	solFile << warpVisitor.m_src;
+	solFile.close();
 
-	std::string					   contractContents = slurpFile(sol_filepath);
-	solidity::langutil::CharStream charStream{contractContents, sol_filepath};
-	auto						   sourceUnit = parser.parse(charStream);
+	solidity::langutil::CharStream irStream;
+	try
+	{
+		irStream = generateIR(sol_filepath);
+	}
+	catch (boost::exception const& exc)
+	{
+		std::cerr << boost::diagnostic_information(exc) << std::endl;
+		return 1;
+	}
 
-	WarpVisitor funcVisitor(main_contract, contractContents, sol_filepath);
-	sourceUnit->accept(funcVisitor);
-	funcVisitor.processChanges();
-	// auto yul = prepass.cleanYul(irSource, main_contract);
-	// auto res = exec("solc --hashes ERC20.sol");
-	// auto res2 = string(res.begin() + res.rfind("=") + 1, res.end());
-	// auto res3 = string(res2.begin() + res2.find(":") +1, res2.end());
-	// auto res4 = splitStr(res3);
-	// cout << res4[1] << endl;
-	// cout << yul << endl;
-	// langutil::CharStream ir = langutil::CharStream(yul, sol_filepath);
+	// =============== Yul pre-pass ===============
+	auto		prepass	 = Prepass(warpVisitor.m_src, main_contract, sol_filepath);
+	std::string irSource = irStream.source();
+	auto		yul		 = prepass.cleanYul(irSource, main_contract);
 
-	// std::variant<phaser::Program, langutil::ErrorList> maybeProgram
-	// 	= phaser::Program::load(ir);
-	// if (auto* errorList = std::get_if<langutil::ErrorList>(&maybeProgram))
-	// {
-	// 	langutil::SingletonCharStreamProvider streamProvider{ir};
-	// 	langutil::SourceReferenceFormatter{std::cerr, streamProvider, true, false}
-	// 		.printErrorInformation(*errorList);
-	// 	std::cerr << std::endl;
-	// 	return 1;
-	// }
+	// =============== Generate Yul JSON AST ===============
+	solidity::langutil::CharStream ir = solidity::langutil::CharStream(yul, sol_filepath);
+	std::variant<solidity::phaser::Program, solidity::langutil::ErrorList> maybeProgram
+		= solidity::phaser::Program::load(ir);
+	if (auto* errorList = std::get_if<solidity::langutil::ErrorList>(&maybeProgram))
+	{
+		solidity::langutil::SingletonCharStreamProvider streamProvider{ir};
+		solidity::langutil::
+			SourceReferenceFormatter{std::cerr, streamProvider, true, false}
+				.printErrorInformation(*errorList);
+		std::cerr << std::endl;
+		return 1;
+	}
 
-	// yul::Block const& ast = get<phaser::Program>(maybeProgram).ast();
-	// yul::AsmJsonConverter jsonConverter{{}};
-	// std::cout << jsonConverter(ast) << std::endl;
-
-	// string contractPath = argv[1];
-
-	// langutil::ErrorList errors;
-	// langutil::ErrorReporter errorReporter{errors};
-	// frontend::Parser parser{errorReporter, langutil::EVMVersion()};
-
-	// string contractContents = slurpFile(contractPath);
-	// langutil::CharStream charStream{contractContents, contractPath};
-	// auto sourceUnit = parser.parse(charStream);
-	// ASTStatistics statistics{};
-	// sourceUnit->accept(statistics);
+	solidity::yul::Block const& ast = get<solidity::phaser::Program>(maybeProgram).ast();
+	solidity::yul::AsmJsonConverter jsonConverter{{}};
+	std::cout << jsonConverter(ast) << std::endl;
 
 	return 0;
 }

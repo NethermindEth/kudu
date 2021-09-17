@@ -30,7 +30,6 @@ public:
 		m_filepath	  = filepath;
 		m_storageVars = StorageVars(main_contract, filepath.c_str()).m_storageVars_str;
 		m_publicFunctions.hashes = this->getPublicFunchashes(filepath);
-		// removeDuplicates();
 	}
 
 	std::vector<std::string> getPublicFunchashes(const std::string& contract_path);
@@ -38,17 +37,19 @@ public:
 	bool visit(solidity::frontend::FunctionDefinition const& _node) override;
 	bool visitNode(solidity::frontend::ASTNode const& node) override;
 	bool contains_warp(std::vector<std::string> vec, std::string search);
+	void processChanges();
+	std::string				 m_filepath;
+	std::string				 m_src;
+
+private:
 	bool isPublic(solidity::frontend::Visibility _visibility);
 	bool hasDynamicArgs(std::string params);
 	void getDynFunctions();
-	void markDynFunctions();
+	void markDynFunctions(std::string find, std::string replace);
 	void removeDuplicates();
-	void processChanges();
 
-	int						 m_publicFunctionCount;
-	PublicFunctions			 m_publicFunctions;
 	std::vector<std::string> m_storageVars;
 	std::vector<std::string> m_hashNames;
-	std::string				 m_filepath;
-	std::string				 m_src;
+	PublicFunctions			 m_publicFunctions;
+	int						 m_publicFunctionCount;
 };

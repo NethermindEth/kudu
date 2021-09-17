@@ -19,21 +19,10 @@ struct FinalizedYul
 	int						 entrySeqEnd;
 };
 
-struct FunctionSigs
-{
-	std::vector<std::string> names;
-	std::vector<std::string> parameters;
-};
-
 struct EntrySwitchCases
 {
 };
 
-struct Selectors
-{
-	std::vector<std::string> hashes;
-	std::vector<std::string> names;
-};
 
 class Prepass
 {
@@ -60,6 +49,4 @@ private:
 	std::string	 m_unMarkedSolSource;
 	std::string	 m_markedSolSource;
 	std::string	 m_contractPath;
-	Selectors	 m_selectors;
-	FunctionSigs m_functionSigs;
 };
