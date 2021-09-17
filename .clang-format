@@ -19,7 +19,7 @@ BinPackArguments: false
 BinPackParameters: false
 BreakBeforeBinaryOperators: All
 BreakBeforeBraces: Allman
-ColumnLimit: 120
+ColumnLimit: 90
 ContinuationIndentWidth: 4
 FixNamespaceComments: false
 IndentWidth: 4
@@ -35,6 +35,17 @@ SpaceBeforeParens: ControlStatements
 SpaceBeforeRangeBasedForLoopColon: false
 TabWidth: 4
 UseTab: Always
+AlignConsecutiveMacros: 'true'
+AlignAfterOpenBracket: AlwaysBreak
+AlignConsecutiveAssignments: 'true'
+AlignConsecutiveDeclarations: 'true'
+AlignOperands: 'true'
+AlignTrailingComments: 'true'
+AllowAllArgumentsOnNextLine: 'false'
+ColumnLimit: '90'
+FixNamespaceComments: 'true'
+NamespaceIndentation: None
+SortIncludes: 'true'
 
 # Local Variables:
 # mode: yaml

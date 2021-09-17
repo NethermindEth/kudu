@@ -881,13 +881,13 @@ contract ERC721 is Context, ERC165, IERC721, IERC721Metadata {
     /**
      * @dev See {IERC721-safeTransferFrom}.
      */
-    function safeTransferFrom(
+    function safeTransferFrom_dynArgs(
         address from,
         address to,
         uint256 tokenId,
         bytes memory _data
     ) public virtual override {
-        require(_isApprovedOrOwner(_msgSender(), tokenId), "ERC721: transfer caller is not owner nor approved");
+require(_isApprovedOrOwner(_msgSender(), tokenId), "ERC721: transfer caller is not owner nor approved");
         _safeTransfer(from, to, tokenId, _data);
     }
 
@@ -1382,8 +1382,8 @@ contract KongsNFT is ERC721, ERC721Enumerable,ERC721URIStorage, Ownable {
     }
 
 
-    function setBaseURI(string memory _newbaseTokenURI) public onlyOwner {
-        _baseTokenURI = _newbaseTokenURI;
+    function setBaseURI_dynArgs(string memory _newbaseTokenURI) public onlyOwner {
+_baseTokenURI = _newbaseTokenURI;
     }
 
     function _baseURI() internal view override returns (string memory) {
@@ -1441,3 +1441,4 @@ contract KongsNFT is ERC721, ERC721Enumerable,ERC721URIStorage, Ownable {
         require(success == true, "Failed to withdraw ether");
     }
 }
+
