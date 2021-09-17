@@ -43,6 +43,7 @@ public:
 	void getDynFunctions();
 	void markDynFunctions();
 	void removeDuplicates();
+	void processChanges();
 
 	int						 m_publicFunctionCount;
 	PublicFunctions			 m_publicFunctions;

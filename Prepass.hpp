@@ -54,14 +54,9 @@ private:
 	std::vector<std::string> getMainObject(std::string code, std::string& main_contract);
 	bool					 isRuntimeObj(std::string str);
 	int						 getSwitchStart(const std::vector<std::string>& func);
-	void					 getPublicFunctions();
 	FinalizedYul			 removeDeploymentCode(std::vector<std::string> code);
-	std::pair<int, int>		 getFuncSigRange(std::vector<std::string> lines, int start);
 	std::string
 	addEntryFunc(std::vector<std::string> entrySeq, std::vector<std::string> cleanCode);
-	std::string	 markDynamicFunctions(std::string solidity_src);
-	std::string	 exec(std::string cmdStr);
-	std::string	 getFunctionName(std::string functionSig);
 	std::string	 m_unMarkedSolSource;
 	std::string	 m_markedSolSource;
 	std::string	 m_contractPath;

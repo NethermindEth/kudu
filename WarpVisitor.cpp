@@ -2,6 +2,13 @@
 #include "library.hpp"
 
 
+void WarpVisitor::processChanges()
+{
+	this->removeDuplicates();
+	this->getDynFunctions();
+	this->markDynFunctions();
+}
+
 void WarpVisitor::removeDuplicates()
 {
 	std::sort(m_publicFunctions.sigs.begin(), m_publicFunctions.sigs.end());
@@ -93,19 +100,21 @@ void WarpVisitor::getDynFunctions()
 }
 
 
-void WarpVisitor::markDynFunctions() 
+void WarpVisitor::markDynFunctions()
 {
 	assert(m_publicFunctions.sigsToReplace.size() == m_publicFunctions.markedSigs.size());
 	for (auto i = 0; i < m_publicFunctions.sigsToReplace.size(); i++)
 	{
-		auto search = m_publicFunctions.sigsToReplace[i];
-		auto replace = m_publicFunctions.markedSigs[i];
-		size_t index = 0;
-		while (true) {
+		auto   search  = m_publicFunctions.sigsToReplace[i];
+		auto   replace = m_publicFunctions.markedSigs[i];
+		size_t index   = 0;
+		while (true)
+		{
 			auto size = replace.size();
 			/* Locate the substring to replace. */
 			index = m_src.find(search, index);
-			if (index == std::string::npos) break;
+			if (index == std::string::npos)
+				break;
 
 			/* Make the replacement. */
 			m_src.replace(index, size, replace);
