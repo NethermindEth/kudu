@@ -1,5 +1,5 @@
 #include "Prepass.hpp"
-#include "library.hpp"
+#include "common/library.hpp"
 #include <set>
 #include <sstream>
 
