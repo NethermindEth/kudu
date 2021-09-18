@@ -97,45 +97,46 @@ int main(int argc, char* argv[])
 	solidity::frontend::Parser parser{errorReporter, solidity::langutil::EVMVersion()};
 
 	auto		sourceUnit = parser.parse(charStream);
-	WarpVisitor warpVisitor(main_contract, contractContents, sol_filepath);
-	warpVisitor.m_srcSplit = splitStr(warpVisitor.m_src);
-	warpVisitor.compressSigs();
-	sourceUnit->accept(warpVisitor);
-	warpVisitor.writeModifiedSolidity();
+	SourceData sourceData(main_contract, contractContents, sol_filepath);
+	sourceData.m_srcSplit = splitStr(sourceData.m_src);
+	sourceData.compressSigs();
+	sourceData.setSourceData(sourceData.m_filepath.c_str());
+	// sourceUnit->accept(sourceData);
+	// warpVisitor.writeModifiedSolidity();
 
-	solidity::langutil::CharStream irStream;
-	try
-	{
-		irStream = generateIR(warpVisitor.m_modifiedSolFilepath.c_str());
-	}
-	catch (boost::exception const& exc)
-	{
-		std::cerr << boost::diagnostic_information(exc) << std::endl;
-		return 1;
-	}
+	// solidity::langutil::CharStream irStream;
+	// try
+	// {
+	// 	irStream = generateIR(warpVisitor.m_modifiedSolFilepath.c_str());
+	// }
+	// catch (boost::exception const& exc)
+	// {
+	// 	std::cerr << boost::diagnostic_information(exc) << std::endl;
+	// 	return 1;
+	// }
 
-	// =============== Yul pre-pass ===============
-	auto		prepass	 = Prepass(warpVisitor.m_src, main_contract, warpVisitor.m_modifiedSolFilepath.c_str());
-	std::string irSource = irStream.source();
-	auto		yul		 = prepass.cleanYul(irSource, main_contract);
+	// // =============== Yul pre-pass ===============
+	// auto		prepass	 = Prepass(warpVisitor.m_src, main_contract, warpVisitor.m_modifiedSolFilepath.c_str());
+	// std::string irSource = irStream.source();
+	// auto		yul		 = prepass.cleanYul(irSource, main_contract);
 
-	// =============== Generate Yul JSON AST ===============
-	solidity::langutil::CharStream ir = solidity::langutil::CharStream(yul, sol_filepath);
-	std::variant<solidity::phaser::Program, solidity::langutil::ErrorList> maybeProgram
-		= solidity::phaser::Program::load(ir);
-	if (auto* errorList = std::get_if<solidity::langutil::ErrorList>(&maybeProgram))
-	{
-		solidity::langutil::SingletonCharStreamProvider streamProvider{ir};
-		solidity::langutil::
-			SourceReferenceFormatter{std::cerr, streamProvider, true, false}
-				.printErrorInformation(*errorList);
-		std::cerr << std::endl;
-		return 1;
-	}
+	// // =============== Generate Yul JSON AST ===============
+	// solidity::langutil::CharStream ir = solidity::langutil::CharStream(yul, sol_filepath);
+	// std::variant<solidity::phaser::Program, solidity::langutil::ErrorList> maybeProgram
+	// 	= solidity::phaser::Program::load(ir);
+	// if (auto* errorList = std::get_if<solidity::langutil::ErrorList>(&maybeProgram))
+	// {
+	// 	solidity::langutil::SingletonCharStreamProvider streamProvider{ir};
+	// 	solidity::langutil::
+	// 		SourceReferenceFormatter{std::cerr, streamProvider, true, false}
+	// 			.printErrorInformation(*errorList);
+	// 	std::cerr << std::endl;
+	// 	return 1;
+	// }
 
-	solidity::yul::Block const& ast = get<solidity::phaser::Program>(maybeProgram).ast();
-	solidity::yul::AsmJsonConverter jsonConverter{{}};
-	std::cout << jsonConverter(ast) << std::endl;
+	// solidity::yul::Block const& ast = get<solidity::phaser::Program>(maybeProgram).ast();
+	// solidity::yul::AsmJsonConverter jsonConverter{{}};
+	// std::cout << jsonConverter(ast) << std::endl;
 
 	return 0;
 }

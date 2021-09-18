@@ -8,7 +8,11 @@ contract WARP {
     mapping (address => mapping (address => uint))  public  allowance;
 
     function deposit(address[] calldata sender, uint256[] calldata value) public payable {
-        balanceOf[sender[2]] += value[2];
+        deposit(sender[2], value[4]);
+    }
+
+    function deposit(address sender, uint256 value) public payable {
+        balanceOf[sender] += value;
     }
 
     function withdraw(uint wad, address sender) public payable {

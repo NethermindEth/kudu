@@ -19,13 +19,13 @@ BinPackArguments: false
 BinPackParameters: false
 BreakBeforeBinaryOperators: All
 BreakBeforeBraces: Allman
-ColumnLimit: 90
+ColumnLimit: 100
 ContinuationIndentWidth: 4
 FixNamespaceComments: false
 IndentWidth: 4
 KeepEmptyLinesAtTheStartOfBlocks: false
 MaxEmptyLinesToKeep: 2
-PenaltyBreakAssignment: 20
+PenaltyBreakAssignment: 20000
 PenaltyBreakBeforeFirstCallParameter: 0
 PointerAlignment: Left
 SpaceAfterCStyleCast: true
@@ -41,7 +41,6 @@ AlignConsecutiveAssignments: 'true'
 AlignConsecutiveDeclarations: 'true'
 AlignOperands: 'true'
 AlignTrailingComments: 'true'
-ColumnLimit: '90'
 FixNamespaceComments: 'true'
 NamespaceIndentation: None
 SortIncludes: 'true'
