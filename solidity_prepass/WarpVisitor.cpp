@@ -4,27 +4,6 @@
 #include <regex>
 
 
-std::string str_repace(std::string find, std::string replace, std::string str)
-{
-	auto str_copy = str;
-	size_t index = 0;
-	auto size = replace.size();
-	index	  = str_copy.find(find, index);
-	if (index == std::string::npos)
-		return str_copy;
-	str_copy.replace(index, size, replace);
-	index += size;
-	return str_copy;
-}
-
-
-void WarpVisitor::processChanges()
-{
-	// this->removeDuplicates();
-	// 	this->getDynFunctions();
-	// 	this->markDynFunctions();
-}
-
 void WarpVisitor::removeDuplicates()
 {
 	std::sort(m_publicFunctions.sigs.begin(), m_publicFunctions.sigs.end());
@@ -96,53 +75,52 @@ bool WarpVisitor::hasDynamicArgs(std::string params)
 		   || params.find("memory") != std::string::npos;
 }
 
-
-void WarpVisitor::getDynFunctions()
-{
-	for (auto i = 0; i < m_publicFunctions.sigs.size(); i++)
-	{
-		if (hasDynamicArgs(m_publicFunctions.sigs[i]))
-		{
-			auto sig		= m_publicFunctions.sigs[i];
-			auto end		= sig.find('(');
-			auto rest		= sig.rfind(')');
-			auto name		= std::string(sig.begin(), sig.begin() + end);
-			auto markedName = name + "_dynArgs";
-			auto markedSig
-				= name + "_dynArgs" + "(" + std::string(sig.begin() + 1 + end, sig.end());
-			m_publicFunctions.markedSigs.emplace_back(markedSig);
-			m_publicFunctions.sigsToReplace.emplace_back(m_publicFunctions.sigs[i]);
-		}
-	}
-}
-
-
-void WarpVisitor::markDynFunctions(std::string find, std::string replace)
-{
-	size_t index = 0;
-	while (true)
-	{
-		auto size = replace.size();
-		/* Locate the substring to replace. */
-		index = m_src.find(find, index);
-		if (index == std::string::npos)
-			break;
-
-		/* Make the replacement. */
-		m_src.replace(index, size, replace);
-
-		/* Advance index forward so the next iteration doesn't pick it up as well. */
-		index += size;
-	}
-	solidity::util::IndentedWriter txt;
-	txt.add(m_src);
-	m_src = txt.format();
-}
-
-
 bool WarpVisitor::visitNode(solidity::frontend::ASTNode const& node)
 {
 	return solidity::frontend::ASTConstVisitor::visitNode(node);
+}
+
+int WarpVisitor::getSigEnd(int start)
+{
+	for (auto i = start; i < m_srcSplit.size(); i++)
+	{
+		if (m_srcSplit[i].find("{") != std::string::npos)
+			return i;
+	}
+	std::runtime_error("Failed to find end of signature");
+}
+
+void WarpVisitor::compressSigs()
+{
+	std::vector<std::string> newSplit;
+	auto					 jump = 1;
+	for (auto i = 0; i < m_srcSplit.size(); i += jump)
+	{
+		if (m_srcSplit[i].find("function") != std::string::npos)
+		{
+			if (m_srcSplit[i].find("{") != std::string::npos)
+			{
+				newSplit.emplace_back(m_srcSplit[i]);
+			}
+			else
+			{
+				auto end = getSigEnd(i);
+				jump	 = end + 1 - (i);
+				std::string sig;
+				std::for_each(
+					m_srcSplit.begin() + i,
+					m_srcSplit.begin() + end + 1,
+					[&sig](std::string v) { sig += v + "\n"; });
+				newSplit.emplace_back(sig);
+			}
+		}
+		else
+		{
+			newSplit.emplace_back(m_srcSplit[i]);
+			jump = 1;
+		}
+	}
+	m_srcSplit = newSplit;
 }
 
 [[nodiscard]] bool WarpVisitor::visit(solidity::frontend::FunctionDefinition const& _node)
@@ -159,22 +137,26 @@ bool WarpVisitor::visitNode(solidity::frontend::ASTNode const& node)
 			int	 functionEnd   = _node.location().end;
 			int	 bodyStart	   = _node.body().location().start;
 			int	 bodyEnd	   = _node.body().location().end;
-			auto body
-				= std::string(m_src.begin() + bodyStart + 1, m_src.begin() + bodyEnd);
+			auto body		   = std::string(
+				 m_src.begin() + bodyStart + 1, m_src.begin() + bodyEnd);
 			auto		funcLocation = std::make_pair(functionStart, functionEnd);
-			std::string params
-				= std::string(m_src.begin() + paramsStart, m_src.begin() + paramsEnd);
+			std::string params		 = std::string(
+				  m_src.begin() + paramsStart, m_src.begin() + paramsEnd);
 			if (not contains_warp(m_storageVars, _node.name()) and hasDynamicArgs(params))
 			{
-				auto sig = std::string(
-					m_src.begin() + _node.location().start + 9,
-					m_src.begin() + _node.body().location().start);
+				auto sig = "    "
+						   + std::string(
+							   m_src.begin() + _node.location().start,
+							   m_src.begin() + _node.body().location().start + 1);
+				auto match = std::find_if(
+					m_srcSplit.begin(),
+					m_srcSplit.end(),
+					[&sig](std::string v) { return v.find(sig) != std::string::npos; });
+				int	 index		= std::distance(m_srcSplit.begin(), match);
 				auto markedName = _node.name() + "_dynArgs";
-				auto markedSig = markedName + std::string(sig.begin() + sig.find('('), sig.end()) + "{\n";
-				markDynFunctions(sig, markedSig);
-				// this->m_publicFunctions.names.emplace_back(_node.name());
-				// this->m_publicFunctions.parameters.emplace_back(params);
-				// this->m_publicFunctions.sigs.emplace_back(sig);
+				auto markedSig	= "    function " + markedName
+								 + std::string(sig.begin() + sig.find('('), sig.end());
+				m_srcSplit[index] = markedSig;
 			}
 		}
 		return visitNode(_node);
@@ -201,4 +183,17 @@ bool WarpVisitor::visitNode(solidity::frontend::ASTNode const& node)
 		break;
 	}
 	}
+}
+
+void WarpVisitor::writeModifiedSolidity()
+{
+	std::string solStr;
+	for (auto line: m_srcSplit)
+		solStr += line + "\n";
+
+	std::fstream solFile;
+	solFile.open(m_modifiedSolFilepath, std::ios::out | std::ios::trunc);
+	solFile << solStr;
+	solFile.close();
+	m_src = solStr;
 }

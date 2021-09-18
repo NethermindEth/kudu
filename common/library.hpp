@@ -1,11 +1,10 @@
 #pragma once
 
-#include "json.hpp"
 #include <algorithm>
+#include <boost/algorithm/string.hpp>
 #include <sstream>
 #include <vector>
 
-using json = nlohmann::json;
 
 
 std::vector<std::string> splitStr(const std::string& str)
@@ -16,12 +15,14 @@ std::vector<std::string> splitStr(const std::string& str)
 	std::string::size_type prev = 0;
 	while ((pos = str.find('\n', prev)) != std::string::npos)
 	{
-		strings.push_back(str.substr(prev, pos - prev));
+		auto line = str.substr(prev, pos - prev);
+		strings.push_back(line);
 		prev = pos + 1;
 	}
 
 	// To get the last substring (or only, if delimiter is not found)
-	strings.push_back(str.substr(prev));
+	auto lastLine = str.substr(prev);
+	strings.push_back(lastLine);
 
 	return strings;
 }

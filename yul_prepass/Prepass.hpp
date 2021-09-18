@@ -1,5 +1,4 @@
 #pragma once
-#include "json.hpp"
 #include <algorithm>
 #include <boost/algorithm/string.hpp>
 #include <boost/throw_exception.hpp>
@@ -10,7 +9,6 @@
 #include <set>
 #include <vector>
 
-using json = nlohmann::json;
 
 struct FinalizedYul
 {

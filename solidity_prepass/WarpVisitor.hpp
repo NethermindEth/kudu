@@ -7,7 +7,7 @@
 #include <string>
 
 #include "StorageVariables.hpp"
-#include "json.hpp"
+#include "common/json.hpp"
 using json = nlohmann::json;
 
 
@@ -26,8 +26,10 @@ class WarpVisitor: public solidity::frontend::ASTConstVisitor
 public:
 	WarpVisitor(std::string main_contract, std::string src, std::string filepath)
 	{
-		m_src		  = src;
-		m_filepath	  = filepath;
+		m_src				  = src;
+		m_filepath			  = filepath;
+		m_modifiedSolFilepath = std::string(filepath.begin(), filepath.end() - 4)
+								+ "_marked.sol";
 		m_storageVars = StorageVars(main_contract, filepath.c_str()).m_storageVars_str;
 		m_publicFunctions.hashes = this->getPublicFunchashes(filepath);
 	}
@@ -37,8 +39,13 @@ public:
 	bool visit(solidity::frontend::FunctionDefinition const& _node) override;
 	bool visitNode(solidity::frontend::ASTNode const& node) override;
 	bool contains_warp(std::vector<std::string> vec, std::string search);
+	int	 getSigEnd(int start);
 	void processChanges();
+	void writeModifiedSolidity();
+	void compressSigs();
+	std::vector<std::string> m_srcSplit;
 	std::string				 m_filepath;
+	std::string				 m_modifiedSolFilepath;
 	std::string				 m_src;
 
 private:

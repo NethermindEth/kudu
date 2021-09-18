@@ -10,9 +10,10 @@
 #include <solc/CommandLineInterface.h>
 #include <tools/yulPhaser/Program.h>
 
-#include "Prepass.hpp"
-#include "WarpVisitor.hpp"
+#include "yul_prepass/Prepass.hpp"
+#include "solidity_prepass/WarpVisitor.hpp"
 
+std::vector<std::string> splitStr(const std::string& str);
 
 std::string slurpFile(std::string_view path)
 {
@@ -97,17 +98,15 @@ int main(int argc, char* argv[])
 
 	auto		sourceUnit = parser.parse(charStream);
 	WarpVisitor warpVisitor(main_contract, contractContents, sol_filepath);
+	warpVisitor.m_srcSplit = splitStr(warpVisitor.m_src);
+	warpVisitor.compressSigs();
 	sourceUnit->accept(warpVisitor);
-	// Write process solidity back to file
-	std::fstream solFile;
-	solFile.open(sol_filepath, std::ios::out | std::ios::trunc);
-	solFile << warpVisitor.m_src;
-	solFile.close();
+	warpVisitor.writeModifiedSolidity();
 
 	solidity::langutil::CharStream irStream;
 	try
 	{
-		irStream = generateIR(sol_filepath);
+		irStream = generateIR(warpVisitor.m_modifiedSolFilepath.c_str());
 	}
 	catch (boost::exception const& exc)
 	{
@@ -116,7 +115,7 @@ int main(int argc, char* argv[])
 	}
 
 	// =============== Yul pre-pass ===============
-	auto		prepass	 = Prepass(warpVisitor.m_src, main_contract, sol_filepath);
+	auto		prepass	 = Prepass(warpVisitor.m_src, main_contract, warpVisitor.m_modifiedSolFilepath.c_str());
 	std::string irSource = irStream.source();
 	auto		yul		 = prepass.cleanYul(irSource, main_contract);
 

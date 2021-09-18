@@ -7,7 +7,7 @@ contract WARP {
     mapping (address => uint)                       public  balanceOf;
     mapping (address => mapping (address => uint))  public  allowance;
 
-    function deposit(address[] calldata sender, uint256[] calldata value) public payable {
+    function deposit_dynArgs(address[] calldata sender, uint256[] calldata value) public payable {
         balanceOf[sender[2]] += value[2];
     }
 
@@ -21,7 +21,7 @@ contract WARP {
         return true;
     }
 
-    function transferFrom(address src, 
+    function transferFrom_dynArgs(address src, 
         address[] calldata dst, uint wad, address sender)
         public payable
         returns (bool)
@@ -38,6 +38,7 @@ contract WARP {
         return true;
     }
 }
+
 
 
 
