@@ -1,5 +1,6 @@
 #include "WarpVisitor.hpp"
 #include <boost/algorithm/string.hpp>
+#include <libsolidity/codegen/ir/IRGenerator.h>
 #include <libsolutil/IndentedWriter.h>
 #include <regex>
 
@@ -83,10 +84,7 @@ bool SourceData::hasDynamicArgs(std::string params)
 		   || params.find("memory") != std::string::npos;
 }
 
-bool SourceData::visitNode(solidity::frontend::ASTNode const& node)
-{
-	return solidity::frontend::ASTConstVisitor::visitNode(node);
-}
+bool SourceData::visitNode(ASTNode const& node) { return ASTConstVisitor::visitNode(node); }
 
 int SourceData::getSigEnd(int start)
 {
@@ -142,7 +140,7 @@ void SourceData::compressSigs()
 	m_srcSplit = newSplit;
 }
 
-[[nodiscard]] bool SourceData::visit(solidity::frontend::FunctionDefinition const& _node)
+[[nodiscard]] bool SourceData::visit(FunctionDefinition const& _node)
 {
 	m_functionNames.push_back(_node.name());
 	if (_node.isConstructor())
@@ -151,16 +149,15 @@ void SourceData::compressSigs()
 	{
 		if (isPublic(_node.visibility()))
 		{
-			int			paramsStart	  = _node.parameterList().location().start + 1;
-			int			paramsEnd	  = _node.parameterList().location().end - 1;
-			int			functionStart = _node.location().start;
-			int			functionEnd	  = _node.location().end;
-			int			bodyStart	  = _node.body().location().start;
-			int			bodyEnd		  = _node.body().location().end;
-			auto		body = std::string(m_src.begin() + bodyStart + 1, m_src.begin() + bodyEnd);
-			auto		funcLocation = std::make_pair(functionStart, functionEnd);
-			std::string params		 = std::string(
-				  m_src.begin() + paramsStart, m_src.begin() + paramsEnd);
+			int	 paramsStart   = _node.parameterList().location().start + 1;
+			int	 paramsEnd	   = _node.parameterList().location().end - 1;
+			int	 functionStart = _node.location().start;
+			int	 functionEnd   = _node.location().end;
+			int	 bodyStart	   = _node.body().location().start;
+			int	 bodyEnd	   = _node.body().location().end;
+			auto body		  = std::string(m_src.begin() + bodyStart + 1, m_src.begin() + bodyEnd);
+			auto funcLocation = std::make_pair(functionStart, functionEnd);
+			auto params		  = std::string(m_src.begin() + paramsStart, m_src.begin() + paramsEnd);
 			if (not contains_warp(m_storageVars, _node.name()) and hasDynamicArgs(params))
 			{
 				auto sig = "    "
@@ -174,6 +171,8 @@ void SourceData::compressSigs()
 				auto markedName = _node.name() + "_dynArgs";
 				auto markedSig	= "    function " + markedName
 								 + std::string(sig.begin() + sig.find('('), sig.end());
+				m_markedFunctions.names.emplace_back(_node.name());
+				m_markedFunctions.parameters.emplace_back(_node.parameters());
 				m_srcSplit[index] = markedSig;
 			}
 		}
@@ -185,12 +184,12 @@ void SourceData::compressSigs()
 	}
 }
 
-[[nodiscard]] bool SourceData::isPublic(solidity::frontend::Visibility _visibility)
+[[nodiscard]] bool SourceData::isPublic(Visibility _visibility)
 {
 	switch (_visibility)
 	{
-	case solidity::frontend::Visibility::Public:
-	case solidity::frontend::Visibility::External:
+	case Visibility::Public:
+	case Visibility::External:
 	{
 		return true;
 		break;
@@ -216,9 +215,9 @@ void SourceData::writeModifiedSolidity()
 	m_src = solStr;
 }
 
-solidity::frontend::CommandLineInterface SourceData::getCli(char const* sol_filepath)
+CommandLineInterface SourceData::getCli(char const* sol_filepath)
 {
-	std::string yulOptimiserSteps = solidity::frontend::OptimiserSettings::DefaultYulOptimiserSteps;
+	std::string yulOptimiserSteps = OptimiserSettings::DefaultYulOptimiserSteps;
 	std::erase(yulOptimiserSteps, 'i'); // remove FullInliner
 	yulOptimiserSteps += " x";			// that flattens function calls: only one
 										// function call per statement is allowed
@@ -228,9 +227,9 @@ solidity::frontend::CommandLineInterface SourceData::getCli(char const* sol_file
 		  sol_filepath,
 	  };
 
-	std::istringstream						 sin; // never used, but the CLI requires it
-	std::ostringstream						 sout;
-	solidity::frontend::CommandLineInterface cli{sin, sout, std::cerr};
+	std::istringstream	 sin; // never used, but the CLI requires it
+	std::ostringstream	 sout;
+	CommandLineInterface cli{sin, sout, std::cerr};
 	if (not cli.parseArguments(solc_argc, solc_argv))
 		BOOST_THROW_EXCEPTION(std::runtime_error{"solc CLI failed to parse arguments"});
 	if (not cli.readInputFiles())
@@ -239,20 +238,20 @@ solidity::frontend::CommandLineInterface SourceData::getCli(char const* sol_file
 	return cli;
 }
 
-bool SourceData::visit(solidity::frontend::FunctionCall const& _node) 
+bool SourceData::visit(FunctionCall const& _node)
 {
-	using namespace solidity::frontend;
-	std::vector<ASTPointer<Expression const>> arguments = _node.arguments();
-	Type const* firstArgType = arguments[0]->annotation().type;
-	for (auto arg : arguments)
+	std::vector<ASTPointer<Expression const>> arguments	   = _node.arguments();
+	Type const*								  firstArgType = arguments[0]->annotation().type;
+	for (auto arg: arguments)
 		std::cout << arg->annotation().type->canonicalName() << std::endl;
 	return true;
 }
 
-void SourceData::test(const solidity::frontend::ContractDefinition& c,  solidity::frontend::FunctionCall const& f)
+void SourceData::test(const ContractDefinition& c, FunctionCall const& f)
 {
-	auto def = solidity::frontend::ASTNode::resolveFunctionCall(f, &c);
-	// resolveFunctionCall(FunctionCall const& _functionCall, ContractDefinition const* _mostDerivedContract);
+	auto def = ASTNode::resolveFunctionCall(f, &c);
+	// resolveFunctionCall(FunctionCall const& _functionCall, ContractDefinition const*
+	// _mostDerivedContract);
 	std::cout << def->name() << std::endl;
 }
 
@@ -266,10 +265,10 @@ void SourceData::setSourceData(const char* sol_filepath)
 		this->m_baseFileName = p.filename();
 	}
 
-	solidity::frontend::FileReader m_fileReader = std::move(cli.fileReader());
+	FileReader m_fileReader = std::move(cli.fileReader());
 
-	this->m_compiler = make_unique<solidity::frontend::CompilerStack>(m_fileReader.reader());
-	solidity::frontend::CommandLineOptions m_options = cli.options();
+	this->m_compiler			 = make_unique<CompilerStack>(m_fileReader.reader());
+	CommandLineOptions m_options = cli.options();
 
 	if (m_options.metadata.literalSources)
 		m_compiler->useMetadataLiteralSources(true);
@@ -285,11 +284,8 @@ void SourceData::setSourceData(const char* sol_filepath)
 								   || m_options.compiler.outputs.irOptimized);
 	m_compiler->enableEwasmGeneration(m_options.compiler.outputs.ewasm);
 
-	solidity::frontend::OptimiserSettings settings = m_options.optimizer.enabled
-														 ? solidity::frontend::OptimiserSettings::
-															 standard()
-														 : solidity::frontend::OptimiserSettings::
-															 minimal();
+	OptimiserSettings settings = m_options.optimizer.enabled ? OptimiserSettings::standard()
+															 : OptimiserSettings::minimal();
 
 	if (m_options.optimizer.expectedExecutionsPerDeployment.has_value())
 		settings.expectedExecutionsPerDeployment = m_options.optimizer
@@ -308,7 +304,7 @@ void SourceData::setSourceData(const char* sol_filepath)
 	m_compiler->analyze();
 	m_compiler->compile();
 	m_compiler->ast("ERC20.sol").accept(*this);
-	
+
 	std::vector<std::string> storageVars;
 	std::ostringstream		 contractDefinition;
 	contractDefinition << m_baseFileName.string() << ":" << m_mainContract;
@@ -320,8 +316,7 @@ void SourceData::setSourceData(const char* sol_filepath)
 	{
 		auto subNodes = m_compiler->contractDefinition(name).subNodes();
 		std::cout << subNodes.size() << std::endl;
-		auto functionCalls = solidity::frontend::ASTNode::filteredNodes<
-			solidity::frontend::FunctionCall>(subNodes);
+		auto functionCalls = ASTNode::filteredNodes<FunctionCall>(subNodes);
 		std::cout << functionCalls.size() << std::endl;
 		m_contracts[name] = ContractData{
 			.subNodes	   = subNodes,
@@ -333,6 +328,16 @@ void SourceData::setSourceData(const char* sol_filepath)
 	{
 		storageVars.emplace_back(var->name());
 	}
+	IRGenerator generator(cli.options().output.evmVersion,
+						  cli.options().output.revertStrings,
+						  settings,
+						  m_compiler->sourceIndices());
+	std::string yulIR, yulIROptimized;
+	auto otherYulSources = std::map<ContractDefinition const*, std::string_view const>();
+	tie(yulIR, yulIROptimized) = generator.run(
+		m_compiler->contractDefinition(contractDefinition.str()),
+		m_compiler->cborMetadata(contractDefinition.str()),
+		otherYulSources);
 	// static FunctionDefinition const* resolveFunctionCall(FunctionCall const& _functionCall,
 	// ContractDefinition const* _mostDerivedContract);
 }

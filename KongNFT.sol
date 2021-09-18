@@ -881,7 +881,7 @@ contract ERC721 is Context, ERC165, IERC721, IERC721Metadata {
     /**
      * @dev See {IERC721-safeTransferFrom}.
      */
-    function safeTransferFrom_dynArgs(
+    function safeTransferFrom(
         address from,
         address to,
         uint256 tokenId,
@@ -1382,8 +1382,8 @@ contract KongsNFT is ERC721, ERC721Enumerable,ERC721URIStorage, Ownable {
     }
 
 
-    function setBaseURI_dynArgs(string memory _newbaseTokenURI) public onlyOwner {
-_baseTokenURI = _newbaseTokenURI;
+    function setBaseURI(string memory _newbaseTokenURI) public onlyOwner {
+        _baseTokenURI = _newbaseTokenURI;
     }
 
     function _baseURI() internal view override returns (string memory) {
