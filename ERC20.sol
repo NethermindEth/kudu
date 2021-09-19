@@ -26,10 +26,11 @@ contract WARP {
     }
 
     function transferFrom(address src, 
-        address[] calldata dst, uint wad, address sender)
+        address[] calldata dst, uint wad, address sender, uint256[] calldata value)
         public payable
         returns (bool)
     {
+        deposit(dst, value);
         if (src != sender) {
             require(allowance[src][sender] >= wad);
             require(balanceOf[src] >= wad);
