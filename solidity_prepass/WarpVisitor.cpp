@@ -299,10 +299,8 @@ std::string SourceData::getStorageVarDummyFuncMapping(std::string typeSig, Type 
 	if (MappingType const* mapping = dynamic_cast<MappingType const*>(_type))
 	{
 		auto nestedNess = std::count(typeSig.begin(), typeSig.end(), '=');
-		std::cout << nestedNess << std::endl;
 		return "";
 	}
-	std::cout << "BROKEN" << std::endl;
 	return "";
 }
 
@@ -349,11 +347,8 @@ bool SourceData::visit(Identifier const& _node)
 				default:
 					break;
 				}
-				// std::cout << parentFunction->name() << std::endl;
 				Declaration const* decl = _node.annotation().referencedDeclaration;
 				auto taggedName = _node.name() + "_" + decl->type()->identifier();
-				// std::cout << taggedName << std::endl;
-				// std::cout << _node.name() << std::endl;
 			}
 		}
 		return visitNode(_node);
