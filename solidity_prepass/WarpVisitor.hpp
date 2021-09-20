@@ -41,8 +41,9 @@ class SourceData: public ASTConstVisitor
 public:
 	enum class PassType
 	{
-		FunctionDefinitionVisitor,
-		FunctionCallVisitor,
+		StorageVarPass,
+		FunctionDefinitionPass,
+		FunctionCallPass,
 	};
 
 	SourceData(std::string main_contract, std::string src, std::string filepath);
@@ -50,6 +51,7 @@ public:
 	CommandLineInterface	  getCli(char const* sol_filepath);
 	FunctionDefinition const* resolveFunctionCall(const ContractDefinition& c,
 												  FunctionCall const&		f);
+	FunctionDefinition const* insideWhichFunction(langutil::SourceLocation const& location);
 
 	std::vector<std::string> getPublicFunchashes(const std::string& contract_path);
 	std::string				 exec(std::string cmdStr);
@@ -57,6 +59,7 @@ public:
 	int	 getSigEnd(int start);
 	bool visit(FunctionDefinition const& _node) override;
 	bool visit(FunctionCall const& _node) override;
+	bool visit(Identifier const& _node) override;
 	bool visitNode(ASTNode const& node) override;
 	bool contains_warp(std::vector<std::string> vec, std::string search);
 	void setSourceData(const char* sol_filepath);
@@ -65,9 +68,14 @@ public:
 	void processChanges();
 	void writeModifiedSolidity();
 	void compressSigs();
+	void dynFuncArgsPass(const char* solFilepath);
+	void storageVarPass(const char* solFilepath);
 
 	std::vector<std::string>			m_storageVars_str;
 	std::vector<std::string>			m_srcSplit;
+	std::vector<std::string>			m_srcSplitDynArgsFuncPass;
+	std::vector<std::string>			m_srcSplitDynArgsFuncCallPass;
+	std::vector<std::string>			m_srcSplitStorageVarsPass;
 	std::vector<std::string>			m_srcSplitOriginal;
 	std::vector<std::string>			m_functionNames;
 	std::map<std::string, ContractData> m_contracts;
@@ -77,13 +85,17 @@ public:
 	std::string m_contractDef;
 	std::string m_filepath;
 	std::string m_modifiedSolFilepath;
+	std::string m_srcModified;
 	std::string m_src;
+	std::string m_srcDynArgsFuncPass;
+	std::string m_srcDynArgsFuncCallPass;
+	std::string m_srcStorageVarsPass;
 
-	std::vector<const FunctionDefinition*>	m_definedFunctions;
 	std::shared_ptr<CompilerStack>			m_compiler;
-	OptimiserSettings 						m_compilerOptimizerSettings;
-	FileReader 								m_fileReader;
-	CommandLineOptions 						m_options;
+	OptimiserSettings						m_compilerOptimizerSettings;
+	FileReader								m_fileReader;
+	CommandLineOptions						m_options;
+	std::vector<FunctionDefinition const*>	m_definedFunctions;
 	std::vector<const VariableDeclaration*> m_storageVars_astNodes;
 	PassType								m_currentPass;
 

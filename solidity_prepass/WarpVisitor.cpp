@@ -11,10 +11,10 @@
 
 SourceData::SourceData(std::string main_contract, std::string src, std::string filepath)
 {
-	m_src					 = src;
-	m_filepath				 = filepath;
-	m_mainContract			 = main_contract;
-	m_modifiedSolFilepath	 = std::string(filepath.begin(), filepath.end() - 4) + "_marked.sol";
+	m_src = src;
+	m_filepath = filepath;
+	m_mainContract = main_contract;
+	m_modifiedSolFilepath = std::string(filepath.begin(), filepath.end() - 4) + "_marked.sol";
 	m_publicFunctions.hashes = this->getPublicFunchashes(filepath);
 }
 
@@ -35,9 +35,9 @@ bool SourceData::contains_warp(std::vector<std::string> vec, std::string search)
 
 std::string SourceData::exec(std::string cmdStr)
 {
-	const char*								 cmd = cmdStr.c_str();
-	std::array<char, 4096>					 buffer;
-	std::string								 result;
+	const char* cmd = cmdStr.c_str();
+	std::array<char, 4096> buffer;
+	std::string result;
 	std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
 	if (!pipe)
 	{
@@ -53,18 +53,18 @@ std::string SourceData::exec(std::string cmdStr)
 
 std::vector<std::string> SourceData::getPublicFunchashes(const std::string& contract_path)
 {
-	std::ostringstream		 cmd;
+	std::ostringstream cmd;
 	std::vector<std::string> hashes;
 	std::vector<std::string> hashNames;
 	cmd << "solc --combined-json hashes " << contract_path;
-	json res	   = json::parse(exec(cmd.str()));
+	json res = json::parse(exec(cmd.str()));
 	auto contracts = res["contracts"];
 	for (auto contract: contracts)
 	{
 		for (auto hash: contract["hashes"].items())
 		{
-			auto		key	 = hash.key();
-			auto		end	 = key.find('(');
+			auto key = hash.key();
+			auto end = key.find('(');
 			std::string name = std::string(key.begin(), key.begin() + end);
 			if (not contains_warp(this->m_storageVars, name))
 			{
@@ -114,8 +114,8 @@ void SourceData::makeFunNamesUnique()
 void SourceData::compressSigs()
 {
 	std::vector<std::string> newSplit;
-	auto					 jump  = 1;
-	auto					 count = 0;
+	auto jump = 1;
+	auto count = 0;
 	for (auto i = 0; i < m_srcSplit.size(); i += jump)
 	{
 		if (m_srcSplit[i].find("function") != std::string::npos)
@@ -127,7 +127,7 @@ void SourceData::compressSigs()
 			else
 			{
 				auto end = getSigEnd(i);
-				jump	 = end + 1 - (i);
+				jump = end + 1 - (i);
 				std::string sig;
 				std::for_each(m_srcSplit.begin() + i,
 							  m_srcSplit.begin() + end + 1,
@@ -144,63 +144,6 @@ void SourceData::compressSigs()
 	m_srcSplit = newSplit;
 }
 
-[[nodiscard]] bool SourceData::visit(FunctionDefinition const& _node)
-{
-	switch (m_currentPass)
-	{
-	case PassType::FunctionDefinitionVisitor:
-	{
-		m_functionNames.push_back(_node.name());
-		if (_node.isConstructor())
-			return visitNode(_node);
-		try
-		{
-			if (isPublic(_node.visibility()))
-			{
-				int	 paramsStart   = _node.parameterList().location().start + 1;
-				int	 paramsEnd	   = _node.parameterList().location().end - 1;
-				int	 functionStart = _node.location().start;
-				int	 functionEnd   = _node.location().end;
-				int	 bodyStart	   = _node.body().location().start;
-				int	 bodyEnd	   = _node.body().location().end;
-				auto body = std::string(m_src.begin() + bodyStart + 1, m_src.begin() + bodyEnd);
-				auto funcLocation = std::make_pair(functionStart, functionEnd);
-				auto params = std::string(m_src.begin() + paramsStart, m_src.begin() + paramsEnd);
-				if (not contains_warp(m_storageVars, _node.name()) and hasDynamicArgs(params))
-				{
-					auto sig = "    "
-							   + std::string(m_src.begin() + _node.location().start,
-											 m_src.begin() + _node.body().location().start + 1);
-					auto match		= std::find_if(m_srcSplit.begin(),
-											   m_srcSplit.end(),
-											   [&sig](std::string v)
-											   { return v.find(sig) != std::string::npos; });
-					int	 index		= std::distance(m_srcSplit.begin(), match);
-					auto markedName = _node.name() + "_dynArgs";
-					auto markedSig	= "    function " + markedName
-									 + std::string(sig.begin() + sig.find('('), sig.end());
-					m_markedFunctions.names.emplace_back(_node.name());
-					std::vector<Type const*> params;
-					for (auto param: _node.parameters())
-					{
-						params.emplace_back(param->type());
-					}
-					m_markedFunctions.parameters.emplace_back(params);
-					m_markedFunctions.selectors.emplace_back(_node.externalIdentifierHex());
-					m_srcSplit[index] = markedSig;
-				}
-			}
-			return visitNode(_node);
-		}
-		catch (boost::wrapexcept<solidity::langutil::InternalCompilerError> e)
-		{
-			return visitNode(_node);
-		}
-	}
-	default:
-		return visitNode(_node);
-	}
-}
 
 [[nodiscard]] bool SourceData::isPublic(Visibility _visibility)
 {
@@ -239,14 +182,14 @@ CommandLineInterface SourceData::getCli(char const* sol_filepath)
 	std::erase(yulOptimiserSteps, 'i'); // remove FullInliner
 	yulOptimiserSteps += " x";			// that flattens function calls: only one
 										// function call per statement is allowed
-	constexpr int solc_argc			   = 2;
-	char const*	  solc_argv[solc_argc] = {
-		  "--bin",
-		  sol_filepath,
-	  };
+	constexpr int solc_argc = 2;
+	char const* solc_argv[solc_argc] = {
+		"--bin",
+		sol_filepath,
+	};
 
-	std::istringstream	 sin; // never used, but the CLI requires it
-	std::ostringstream	 sout;
+	std::istringstream sin; // never used, but the CLI requires it
+	std::ostringstream sout;
 	CommandLineInterface cli{sin, sout, std::cerr};
 	if (not cli.parseArguments(solc_argc, solc_argv))
 		BOOST_THROW_EXCEPTION(std::runtime_error{"solc CLI failed to parse arguments"});
@@ -256,17 +199,76 @@ CommandLineInterface SourceData::getCli(char const* sol_filepath)
 	return cli;
 }
 
+[[nodiscard]] bool SourceData::visit(FunctionDefinition const& _node)
+{
+	switch (m_currentPass)
+	{
+	case PassType::FunctionDefinitionPass:
+	{
+		m_functionNames.push_back(_node.name());
+		if (_node.isConstructor())
+			return visitNode(_node);
+		try
+		{
+			if (isPublic(_node.visibility()))
+			{
+				int paramsStart = _node.parameterList().location().start + 1;
+				int paramsEnd = _node.parameterList().location().end - 1;
+				int functionStart = _node.location().start;
+				int functionEnd = _node.location().end;
+				int bodyStart = _node.body().location().start;
+				int bodyEnd = _node.body().location().end;
+				auto body = std::string(m_src.begin() + bodyStart + 1, m_src.begin() + bodyEnd);
+				auto funcLocation = std::make_pair(functionStart, functionEnd);
+				auto params = std::string(m_src.begin() + paramsStart, m_src.begin() + paramsEnd);
+				if (not contains_warp(m_storageVars, _node.name()) and hasDynamicArgs(params))
+				{
+					auto sig = "    "
+							   + std::string(m_src.begin() + _node.location().start,
+											 m_src.begin() + _node.body().location().start + 1);
+					auto match = std::find_if(m_srcSplit.begin(),
+											  m_srcSplit.end(),
+											  [&sig](std::string v)
+											  { return v.find(sig) != std::string::npos; });
+					int index = std::distance(m_srcSplit.begin(), match);
+					auto markedName = _node.name() + "_dynArgs";
+					auto markedSig = "    function " + markedName
+									 + std::string(sig.begin() + sig.find('('), sig.end());
+					m_markedFunctions.names.emplace_back(_node.name());
+					std::vector<Type const*> params;
+					for (auto param: _node.parameters())
+					{
+						params.emplace_back(param->type());
+					}
+					m_markedFunctions.parameters.emplace_back(params);
+					m_markedFunctions.selectors.emplace_back(_node.externalIdentifierHex());
+					m_srcSplit[index] = markedSig;
+				}
+			}
+			return visitNode(_node);
+		}
+		catch (boost::wrapexcept<solidity::langutil::InternalCompilerError> e)
+		{
+			return visitNode(_node);
+		}
+	}
+	default:
+		return visitNode(_node);
+	}
+}
+
 bool SourceData::visit(FunctionCall const& _node)
 {
 	switch (m_currentPass)
 	{
-	case PassType::FunctionCallVisitor:
+	case PassType::FunctionCallPass:
 	{
-		auto funcDef = resolveFunctionCall(m_compiler->contractDefinition("ERC20.sol:WARP"), _node);
+		auto funcDef = resolveFunctionCall(
+			m_compiler->contractDefinition(m_filepath + ":" + m_mainContract), _node);
 		if (funcDef != nullptr)
 		{
 			auto selector = funcDef->externalIdentifierHex();
-			int	 found	  = 0;
+			int found = 0;
 			std::for_each(m_markedFunctions.selectors.begin(),
 						  m_markedFunctions.selectors.end(),
 						  [&found, &selector](const std::string& id)
@@ -275,11 +277,11 @@ bool SourceData::visit(FunctionCall const& _node)
 			{
 				auto line = std::string(m_src.begin() + _node.location().start,
 										m_src.begin() + _node.location().end + 1);
-				auto sig  = std::string(
-					 m_src.begin() + _node.location().start, m_src.begin() + _node.location().end);
+				auto sig = std::string(
+					m_src.begin() + _node.location().start, m_src.begin() + _node.location().end);
 				auto funcName = std::string(sig.begin(), sig.begin() + sig.find('('));
-				int	 index	  = 0;
-				int	 count	  = 0;
+				int index = 0;
+				int count = 0;
 				std::for_each(m_srcSplit.begin(),
 							  m_srcSplit.end(),
 							  [&index, &line, &count](std::string src)
@@ -291,6 +293,47 @@ bool SourceData::visit(FunctionCall const& _node)
 							  });
 				boost::replace_first(m_srcSplit[index], funcName, funcName + "_dynArgs");
 			}
+		}
+		return visitNode(_node);
+	}
+	default:
+		return visitNode(_node);
+	}
+}
+
+FunctionDefinition const* SourceData::insideWhichFunction(langutil::SourceLocation const& location)
+{
+	for (auto func: m_definedFunctions)
+	{
+		if (func->location().contains(location))
+		{
+			return func;
+		}
+	}
+	assert(false);
+}
+
+bool SourceData::visit(Identifier const& _node)
+{
+	switch (m_currentPass)
+	{
+	case PassType::StorageVarPass:
+	{
+		if (std::find(m_storageVars_str.begin(), m_storageVars_str.end(), _node.name())
+			!= m_storageVars_str.end())
+		{
+			auto parentFunction = insideWhichFunction(_node.location());
+			Declaration const* decl = _node.annotation().referencedDeclaration;
+			std::cout << parentFunction->name() << std::endl;
+			auto taggedName = _node.name() + "_" + decl->type()->identifier();
+			std::cout << taggedName << std::endl;
+			if (std::find(m_markedFunctions.selectors.begin(),
+						  m_markedFunctions.selectors.end(),
+						  parentFunction->externalIdentifierHex())
+				!= m_markedFunctions.selectors.end())
+			{
+			}
+			// std::cout << _node.name() << std::endl;
 		}
 		return visitNode(_node);
 	}
@@ -315,7 +358,7 @@ bool SourceData::checkTypeEqaulity(std::vector<Type const*> const& t1, std::vect
 }
 
 FunctionDefinition const* SourceData::resolveFunctionCall(const ContractDefinition& c,
-														  FunctionCall const&		f)
+														  FunctionCall const& f)
 {
 	return ASTNode::resolveFunctionCall(f, &c);
 }
@@ -340,8 +383,8 @@ void SourceData::setCompilerOptions(std::shared_ptr<CompilerStack> compiler)
 	std::erase(yulOptimiserSteps, 'i'); // remove FullInliner
 	yulOptimiserSteps += " x";			// that flattens function calls: only one
 
-	this->m_compilerOptimizerSettings							= OptimiserSettings::full();
-	m_compilerOptimizerSettings.yulOptimiserSteps				= yulOptimiserSteps;
+	this->m_compilerOptimizerSettings = OptimiserSettings::full();
+	m_compilerOptimizerSettings.yulOptimiserSteps = yulOptimiserSteps;
 	m_compilerOptimizerSettings.expectedExecutionsPerDeployment = 1;
 
 	m_compiler->setOptimiserSettings(m_compilerOptimizerSettings);
@@ -349,9 +392,9 @@ void SourceData::setCompilerOptions(std::shared_ptr<CompilerStack> compiler)
 	m_compiler->setParserErrorRecovery(m_options.input.errorRecovery);
 }
 
-void SourceData::setSourceData(const char* sol_filepath)
+void SourceData::dynFuncArgsPass(const char* solFilepath)
 {
-	auto cli   = getCli(sol_filepath);
+	auto cli = getCli(solFilepath);
 	auto paths = cli.options().input.paths;
 	// For now we are only supporting single files;
 	for (auto p: paths)
@@ -360,82 +403,98 @@ void SourceData::setSourceData(const char* sol_filepath)
 	}
 
 	this->m_fileReader = std::move(cli.fileReader());
-	this->m_compiler   = std::make_shared<CompilerStack>(m_fileReader.reader());
-	this->m_options	   = cli.options();
+	this->m_compiler = std::make_shared<CompilerStack>(m_fileReader.reader());
+	this->m_options = cli.options();
 	this->setCompilerOptions(m_compiler);
 
 	m_compiler->parse();
 	m_compiler->analyze();
 	m_compiler->compile();
 
-	m_currentPass = PassType::FunctionDefinitionVisitor;
-	m_compiler->ast("ERC20.sol").accept(*this);
-	m_currentPass = PassType::FunctionCallVisitor;
-	m_compiler->ast("ERC20.sol").accept(*this);
-
-	this->writeModifiedSolidity();
-
+	m_currentPass = PassType::FunctionDefinitionPass;
+	m_compiler->ast(m_filepath).accept(*this);
+	m_srcDynArgsFuncPass = "";
+	for (auto line: m_srcSplit)
+	{
+		m_srcDynArgsFuncPass += line + "\n";
+	}
 	std::vector<std::string> storageVars;
-	std::ostringstream		 contractDefinition;
+	std::ostringstream contractDefinition;
 	contractDefinition << m_baseFileName.string() << ":" << m_mainContract;
-	auto stateVars	   = m_compiler->contractDefinition(contractDefinition.str()).stateVariables();
+	m_storageVars_astNodes = m_compiler->contractDefinition(contractDefinition.str())
+								 .stateVariables();
 	auto contractNames = m_compiler->contractNames();
-	for (auto name: contractNames)
+	m_definedFunctions = m_compiler->contractDefinition(contractDefinition.str())
+							 .definedFunctions();
+	for (auto var: m_storageVars_astNodes)
 	{
-		auto subNodes	   = m_compiler->contractDefinition(name).subNodes();
-		auto functionCalls = ASTNode::filteredNodes<FunctionCall>(subNodes);
-		m_contracts[name]  = ContractData{
-			 .subNodes		= subNodes,
-			 .functionCalls = functionCalls,
-		 };
+		m_storageVars_str.emplace_back(var->name());
 	}
-	m_storageVars_astNodes = stateVars;
-	for (auto var: stateVars)
-	{
-		storageVars.emplace_back(var->name());
-	}
+	m_currentPass = PassType::FunctionCallPass;
+	m_compiler->ast(m_filepath).accept(*this);
+	this->writeModifiedSolidity();
+}
 
+void SourceData::storageVarPass(const char* solFilepath) 
+{
+	m_currentPass = PassType::StorageVarPass;
+
+}
+
+void SourceData::setSourceData(const char* sol_filepath)
+{
 	m_compiler->reset(true);
-	cli   = getCli(sol_filepath);
-	paths = cli.options().input.paths;
+	auto newCli = getCli(m_modifiedSolFilepath.c_str());
+	auto paths = newCli.options().input.paths;
 	// For now we are only supporting single files;
 	for (auto p: paths)
 	{
 		this->m_baseFileName = p.filename();
 	}
+	this->m_fileReader = std::move(newCli.fileReader());
+	this->m_options = newCli.options();
+	this->setCompilerOptions(m_compiler);
+	m_compiler->parse();
+	m_compiler->analyze();
+	m_compiler->compile();
 
-	IRGenerator generator(cli.options().output.evmVersion,
-						  cli.options().output.revertStrings,
+	std::ostringstream modifiedContractName;
+	modifiedContractName << m_modifiedSolFilepath << ":" << m_mainContract;
+	m_currentPass = PassType::StorageVarPass;
+	m_compiler->ast(m_filepath).accept(*this);
+
+	IRGenerator generator(newCli.options().output.evmVersion,
+						  newCli.options().output.revertStrings,
 						  m_compilerOptimizerSettings,
 						  m_compiler->sourceIndices());
 
 	std::string yulIR, yulIROptimized;
-	auto		otherYulSources = std::map<ContractDefinition const*, std::string_view const>();
+	auto otherYulSources = std::map<ContractDefinition const*, std::string_view const>();
 
 	tie(yulIR, yulIROptimized) = generator.run(
-		m_compiler->contractDefinition(contractDefinition.str()),
-		m_compiler->cborMetadata(contractDefinition.str()),
+		m_compiler->contractDefinition(modifiedContractName.str()),
+		m_compiler->cborMetadata(modifiedContractName.str()),
 		otherYulSources);
 
 	auto prepass = Prepass(m_src, m_mainContract, m_modifiedSolFilepath.c_str());
-	auto yul	 = prepass.cleanYul(yulIROptimized, m_mainContract);
+	auto yul = prepass.cleanYul(yulIROptimized, m_mainContract);
+	// std::cout << yul << std::endl;
+	// // =============== Generate Yul JSON AST ===============
+	// langutil::CharStream ir = langutil::CharStream(yul, sol_filepath);
 
-	// =============== Generate Yul JSON AST ===============
-	langutil::CharStream ir = langutil::CharStream(yul, sol_filepath);
+	// std::variant<phaser::Program, langutil::ErrorList> maybeProgram = phaser::Program::load(ir);
 
-	std::variant<phaser::Program, langutil::ErrorList> maybeProgram = phaser::Program::load(ir);
+	// if (auto* errorList = std::get_if<langutil::ErrorList>(&maybeProgram))
+	// {
+	// 	langutil::SingletonCharStreamProvider streamProvider{ir};
+	// 	langutil::SourceReferenceFormatter{std::cerr, streamProvider, true, false}
+	// 		.printErrorInformation(*errorList);
+	// 	std::cerr << std::endl;
+	// }
 
-	if (auto* errorList = std::get_if<langutil::ErrorList>(&maybeProgram))
-	{
-		langutil::SingletonCharStreamProvider streamProvider{ir};
-		langutil::SourceReferenceFormatter{std::cerr, streamProvider, true, false}
-			.printErrorInformation(*errorList);
-		std::cerr << std::endl;
-	}
-
-	yul::Block const&	  ast = get<phaser::Program>(maybeProgram).ast();
-	yul::AsmJsonConverter jsonConverter{{}};
-	std::cout << jsonConverter(ast) << std::endl;
+	// yul::Block const&	  ast = get<phaser::Program>(maybeProgram).ast();
+	// yul::AsmJsonConverter jsonConverter{{}};
+	// std::cout << jsonConverter(ast) << std::endl;
 	// std::cout << yulIROptimized << std::endl;
 	// static FunctionDefinition const* resolveFunctionCall(FunctionCall const& _functionCall,
 	// ContractDefinition const* _mostDerivedContract);
