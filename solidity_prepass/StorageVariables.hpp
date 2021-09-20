@@ -14,6 +14,8 @@ public:
 	std::vector<std::string>				 getStorageVars(const char* sol_filepath);
 	std::vector<std::string>				 m_storageVars_str;
 	std::string								 m_contractDef;
+	std::unique_ptr<solidity::frontend::CompilerStack> m_compiler;
 	boost::filesystem::path					 m_baseFileName;
+
 	std::vector<const solidity::frontend::VariableDeclaration*> m_storageVars_astNodes;
 };

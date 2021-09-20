@@ -21,10 +21,6 @@ Prepass::Prepass(std::string sol_src, std::string main_contract, std::string con
 		}
 	}
 	this->m_unMarkedSolSource = sol_src;
-	// for (auto line: m_solSrcLines)
-	// {
-
-	// }
 }
 
 bool isFunctionSig(std::string line)

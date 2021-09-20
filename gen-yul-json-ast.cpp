@@ -10,8 +10,8 @@
 #include <solc/CommandLineInterface.h>
 #include <tools/yulPhaser/Program.h>
 
-#include "yul_prepass/Prepass.hpp"
 #include "solidity_prepass/WarpVisitor.hpp"
+#include "yul_prepass/Prepass.hpp"
 
 std::vector<std::string> splitStr(const std::string& str);
 
@@ -32,8 +32,7 @@ std::string slurpFile(std::string_view path)
 
 solidity::langutil::CharStream generateIR(char const* sol_filepath)
 {
-	std::string yulOptimiserSteps
-		= solidity::frontend::OptimiserSettings::DefaultYulOptimiserSteps;
+	std::string yulOptimiserSteps = solidity::frontend::OptimiserSettings::DefaultYulOptimiserSteps;
 	erase(yulOptimiserSteps, 'i'); // remove FullInliner
 	yulOptimiserSteps += " x";	   // that flattens function calls: only one
 								   // function call per statement is allowed
@@ -64,8 +63,7 @@ solidity::langutil::CharStream generateIR(char const* sol_filepath)
 	if (ir.substr(0, IR_HEADER.size()) != IR_HEADER)
 	{
 		std::ostringstream es;
-		es << "Expected '" << IR_HEADER << "' header in solc IR output but not found"
-		   << std::endl;
+		es << "Expected '" << IR_HEADER << "' header in solc IR output but not found" << std::endl;
 		BOOST_THROW_EXCEPTION(std::runtime_error{es.str()});
 	}
 	ir.remove_prefix(IR_HEADER.size());
@@ -94,48 +92,14 @@ int main(int argc, char* argv[])
 	solidity::langutil::CharStream	  charStream{contractContents, sol_filepath};
 	solidity::langutil::ErrorList	  errors;
 	solidity::langutil::ErrorReporter errorReporter{errors};
-	solidity::frontend::Parser parser{errorReporter, solidity::langutil::EVMVersion()};
+	solidity::frontend::Parser		  parser{errorReporter, solidity::langutil::EVMVersion()};
 
-	auto		sourceUnit = parser.parse(charStream);
-	WarpVisitor warpVisitor(main_contract, contractContents, sol_filepath);
-	warpVisitor.m_srcSplit = splitStr(warpVisitor.m_src);
-	warpVisitor.compressSigs();
-	sourceUnit->accept(warpVisitor);
-	warpVisitor.writeModifiedSolidity();
-
-	solidity::langutil::CharStream irStream;
-	try
-	{
-		irStream = generateIR(warpVisitor.m_modifiedSolFilepath.c_str());
-	}
-	catch (boost::exception const& exc)
-	{
-		std::cerr << boost::diagnostic_information(exc) << std::endl;
-		return 1;
-	}
-
-	// =============== Yul pre-pass ===============
-	auto		prepass	 = Prepass(warpVisitor.m_src, main_contract, warpVisitor.m_modifiedSolFilepath.c_str());
-	std::string irSource = irStream.source();
-	auto		yul		 = prepass.cleanYul(irSource, main_contract);
-
-	// =============== Generate Yul JSON AST ===============
-	solidity::langutil::CharStream ir = solidity::langutil::CharStream(yul, sol_filepath);
-	std::variant<solidity::phaser::Program, solidity::langutil::ErrorList> maybeProgram
-		= solidity::phaser::Program::load(ir);
-	if (auto* errorList = std::get_if<solidity::langutil::ErrorList>(&maybeProgram))
-	{
-		solidity::langutil::SingletonCharStreamProvider streamProvider{ir};
-		solidity::langutil::
-			SourceReferenceFormatter{std::cerr, streamProvider, true, false}
-				.printErrorInformation(*errorList);
-		std::cerr << std::endl;
-		return 1;
-	}
-
-	solidity::yul::Block const& ast = get<solidity::phaser::Program>(maybeProgram).ast();
-	solidity::yul::AsmJsonConverter jsonConverter{{}};
-	std::cout << jsonConverter(ast) << std::endl;
+	auto	   sourceUnit = parser.parse(charStream);
+	SourceData sourceData(main_contract, contractContents, sol_filepath);
+	sourceData.m_srcSplit		  = splitStr(sourceData.m_src);
+	sourceData.m_srcSplitOriginal = splitStr(sourceData.m_src);
+	sourceData.compressSigs();
+	sourceData.prepareSoliditySource(sourceData.m_filepath.c_str());
 
 	return 0;
 }
