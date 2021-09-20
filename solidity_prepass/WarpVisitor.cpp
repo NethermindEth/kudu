@@ -313,6 +313,35 @@ FunctionDefinition const* SourceData::insideWhichFunction(langutil::SourceLocati
 	assert(false);
 }
 
+std::string SourceData::getStorageVarDummyFuncMapping(std::string typeSig, Type const* _type)
+{
+	if (MappingType const* mapping = dynamic_cast<MappingType const*>(_type))
+	{
+		auto nestedNess = std::count(typeSig.begin(), typeSig.end(), '=');
+		std::cout << nestedNess << std::endl;
+		return "";
+	}
+	std::cout << "BROKEN" << std::endl;
+	return "";
+}
+
+std::string SourceData::getStorageVarDummyFuncInt(Type const* _type)
+{
+	if (IntegerType const* type = dynamic_cast<IntegerType const*>(_type))
+	{
+
+	}
+	else if (RationalNumberType const* type = dynamic_cast<RationalNumberType const*>(_type))
+	{
+
+	}
+}
+
+// bool SourceData::visit(IndexAccess const& _node)
+// {
+// 	return true;
+// }
+
 bool SourceData::visit(Identifier const& _node)
 {
 	switch (m_currentPass)
@@ -323,17 +352,30 @@ bool SourceData::visit(Identifier const& _node)
 			!= m_storageVars_str.end())
 		{
 			auto parentFunction = insideWhichFunction(_node.location());
-			Declaration const* decl = _node.annotation().referencedDeclaration;
-			std::cout << parentFunction->name() << std::endl;
-			auto taggedName = _node.name() + "_" + decl->type()->identifier();
-			std::cout << taggedName << std::endl;
-			if (std::find(m_markedFunctions.selectors.begin(),
-						  m_markedFunctions.selectors.end(),
-						  parentFunction->externalIdentifierHex())
-				!= m_markedFunctions.selectors.end())
+			if (parentFunction != nullptr)
 			{
+				auto type = _node.annotation().type;
+				auto typeSig = type->signatureInExternalFunction(false);
+				boost::trim(typeSig);
+				switch (type->category())
+				{
+				case Type::Category::Mapping:
+				{
+					getStorageVarDummyFuncMapping(typeSig, type);
+					break;
+				}
+				case Type::Category::Integer:
+				case Type::Category::RationalNumber:
+					break;
+				default:
+					break;
+				}
+				// std::cout << parentFunction->name() << std::endl;
+				Declaration const* decl = _node.annotation().referencedDeclaration;
+				auto taggedName = _node.name() + "_" + decl->type()->identifier();
+				// std::cout << taggedName << std::endl;
+				// std::cout << _node.name() << std::endl;
 			}
-			// std::cout << _node.name() << std::endl;
 		}
 		return visitNode(_node);
 	}
@@ -435,13 +477,7 @@ void SourceData::dynFuncArgsPass(const char* solFilepath)
 	this->writeModifiedSolidity();
 }
 
-void SourceData::storageVarPass(const char* solFilepath) 
-{
-	m_currentPass = PassType::StorageVarPass;
-
-}
-
-void SourceData::setSourceData(const char* sol_filepath)
+void SourceData::storageVarPass() 
 {
 	m_compiler->reset(true);
 	auto newCli = getCli(m_modifiedSolFilepath.c_str());
@@ -457,11 +493,37 @@ void SourceData::setSourceData(const char* sol_filepath)
 	m_compiler->parse();
 	m_compiler->analyze();
 	m_compiler->compile();
+	std::ostringstream contractDefinition;
+	contractDefinition << m_modifiedSolFilepath << ":" << m_mainContract;
+	m_definedFunctions = m_compiler->contractDefinition(contractDefinition.str())
+							 .definedFunctions();
+	m_currentPass = PassType::StorageVarPass;
+	m_compiler->ast(m_modifiedSolFilepath).accept(*this);
+}
+
+void SourceData::setSourceData(const char* sol_filepath)
+{
+	this->dynFuncArgsPass(sol_filepath);
+	this->storageVarPass();
+	// m_compiler->reset(true);
+	auto newCli = getCli(m_modifiedSolFilepath.c_str());
+	auto paths = newCli.options().input.paths;
+	// For now we are only supporting single files;
+	// for (auto p: paths)
+	// {
+	// 	this->m_baseFileName = p.filename();
+	// }
+	this->m_fileReader = std::move(newCli.fileReader());
+	this->m_options = newCli.options();
+	// this->setCompilerOptions(m_compiler);
+	// m_compiler->parse();
+	// m_compiler->analyze();
+	// m_compiler->compile();
 
 	std::ostringstream modifiedContractName;
 	modifiedContractName << m_modifiedSolFilepath << ":" << m_mainContract;
-	m_currentPass = PassType::StorageVarPass;
-	m_compiler->ast(m_filepath).accept(*this);
+	// m_currentPass = PassType::StorageVarPass;
+	// m_compiler->ast(m_filepath).accept(*this);
 
 	IRGenerator generator(newCli.options().output.evmVersion,
 						  newCli.options().output.revertStrings,
@@ -476,8 +538,9 @@ void SourceData::setSourceData(const char* sol_filepath)
 		m_compiler->cborMetadata(modifiedContractName.str()),
 		otherYulSources);
 
-	auto prepass = Prepass(m_src, m_mainContract, m_modifiedSolFilepath.c_str());
-	auto yul = prepass.cleanYul(yulIROptimized, m_mainContract);
+	std::cout << yulIROptimized << std::endl;
+	// auto prepass = Prepass(m_src, m_mainContract, m_modifiedSolFilepath.c_str());
+	// auto yul = prepass.cleanYul(yulIROptimized, m_mainContract);
 	// std::cout << yul << std::endl;
 	// // =============== Generate Yul JSON AST ===============
 	// langutil::CharStream ir = langutil::CharStream(yul, sol_filepath);

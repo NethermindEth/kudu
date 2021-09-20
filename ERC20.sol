@@ -1,11 +1,12 @@
 pragma solidity >=0.4.18;
 
 contract WARP {
-    uint8  public decimals    = 18;
-    uint256 public totalSupply= 100000000000000000000000000000000000;
+    uint8  public decimals     = 18;
+    uint256 public totalSupply = 100000000000000000000000000000000000;
     uint8 private age;
     mapping (address => uint)                       public  balanceOf;
     mapping (address => mapping (address => uint))  public  allowance;
+
 
     function deposit(address[] calldata sender, uint256[] calldata value) public payable {
         deposit(sender[2], value[4]);

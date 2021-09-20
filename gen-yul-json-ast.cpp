@@ -100,7 +100,6 @@ int main(int argc, char* argv[])
 	sourceData.m_srcSplitOriginal = splitStr(sourceData.m_src);
 	sourceData.compressSigs();
 	sourceData.setSourceData(sourceData.m_filepath.c_str());
-	sourceData.writeModifiedSolidity();
 
 	// solidity::langutil::CharStream irStream;
 	// try
