@@ -62,13 +62,10 @@ public:
 	bool visit(FunctionDefinition const& _node) override;
 	bool visit(FunctionCall const& _node) override;
 	bool visit(Identifier const& _node) override;
-	// bool visit(IndexAccess const& _node) override;
 	bool visitNode(ASTNode const& node) override;
 	bool contains_warp(std::vector<std::string> vec, std::string search);
-	void setSourceData(const char* sol_filepath);
+	void prepareSoliditySource(const char* sol_filepath);
 	void setCompilerOptions(std::shared_ptr<CompilerStack> compiler);
-	void makeFunNamesUnique();
-	void processChanges();
 	void writeModifiedSolidity();
 	void compressSigs();
 	void dynFuncArgsPass(const char* solFilepath);
@@ -107,9 +104,6 @@ private:
 	bool isPublic(Visibility _visibility);
 	bool hasDynamicArgs(std::string params);
 	bool checkTypeEqaulity(std::vector<Type const*> const& t1, std::vector<Type const*> t2);
-	void getDynFunctions();
-	void markDynFunctions(std::string find, std::string replace);
-	void removeDuplicates();
 
 	std::vector<std::string> m_storageVars;
 	std::vector<std::string> m_hashNames;

@@ -18,14 +18,6 @@ SourceData::SourceData(std::string main_contract, std::string src, std::string f
 	m_publicFunctions.hashes = this->getPublicFunchashes(filepath);
 }
 
-void SourceData::removeDuplicates()
-{
-	std::sort(m_publicFunctions.sigs.begin(), m_publicFunctions.sigs.end());
-	m_publicFunctions.sigs.erase(
-		std::unique(m_publicFunctions.sigs.begin(), m_publicFunctions.sigs.end()),
-		m_publicFunctions.sigs.end());
-}
-
 bool SourceData::contains_warp(std::vector<std::string> vec, std::string search)
 {
 	auto it = std::find(vec.begin(), vec.end(), search);
@@ -100,17 +92,6 @@ int SourceData::getSigEnd(int start)
 	std::runtime_error("Failed to find end of signature");
 }
 
-void SourceData::makeFunNamesUnique()
-{
-	auto count = 0;
-	for (auto i = 0; i < m_srcSplit.size(); i++)
-	{
-		if (m_srcSplit[i].find("function") != std::string::npos)
-		{
-		}
-	}
-}
-
 void SourceData::compressSigs()
 {
 	std::vector<std::string> newSplit;
@@ -145,7 +126,7 @@ void SourceData::compressSigs()
 }
 
 
-[[nodiscard]] bool SourceData::isPublic(Visibility _visibility)
+bool SourceData::isPublic(Visibility _visibility)
 {
 	switch (_visibility)
 	{
@@ -199,7 +180,7 @@ CommandLineInterface SourceData::getCli(char const* sol_filepath)
 	return cli;
 }
 
-[[nodiscard]] bool SourceData::visit(FunctionDefinition const& _node)
+bool SourceData::visit(FunctionDefinition const& _node)
 {
 	switch (m_currentPass)
 	{
@@ -329,11 +310,9 @@ std::string SourceData::getStorageVarDummyFuncInt(Type const* _type)
 {
 	if (IntegerType const* type = dynamic_cast<IntegerType const*>(_type))
 	{
-
 	}
 	else if (RationalNumberType const* type = dynamic_cast<RationalNumberType const*>(_type))
 	{
-
 	}
 }
 
@@ -477,7 +456,7 @@ void SourceData::dynFuncArgsPass(const char* solFilepath)
 	this->writeModifiedSolidity();
 }
 
-void SourceData::storageVarPass() 
+void SourceData::storageVarPass()
 {
 	m_compiler->reset(true);
 	auto newCli = getCli(m_modifiedSolFilepath.c_str());
@@ -501,29 +480,17 @@ void SourceData::storageVarPass()
 	m_compiler->ast(m_modifiedSolFilepath).accept(*this);
 }
 
-void SourceData::setSourceData(const char* sol_filepath)
+void SourceData::prepareSoliditySource(const char* sol_filepath)
 {
 	this->dynFuncArgsPass(sol_filepath);
 	this->storageVarPass();
-	// m_compiler->reset(true);
 	auto newCli = getCli(m_modifiedSolFilepath.c_str());
 	auto paths = newCli.options().input.paths;
-	// For now we are only supporting single files;
-	// for (auto p: paths)
-	// {
-	// 	this->m_baseFileName = p.filename();
-	// }
 	this->m_fileReader = std::move(newCli.fileReader());
 	this->m_options = newCli.options();
-	// this->setCompilerOptions(m_compiler);
-	// m_compiler->parse();
-	// m_compiler->analyze();
-	// m_compiler->compile();
 
 	std::ostringstream modifiedContractName;
 	modifiedContractName << m_modifiedSolFilepath << ":" << m_mainContract;
-	// m_currentPass = PassType::StorageVarPass;
-	// m_compiler->ast(m_filepath).accept(*this);
 
 	IRGenerator generator(newCli.options().output.evmVersion,
 						  newCli.options().output.revertStrings,
@@ -538,27 +505,23 @@ void SourceData::setSourceData(const char* sol_filepath)
 		m_compiler->cborMetadata(modifiedContractName.str()),
 		otherYulSources);
 
-	std::cout << yulIROptimized << std::endl;
-	// auto prepass = Prepass(m_src, m_mainContract, m_modifiedSolFilepath.c_str());
-	// auto yul = prepass.cleanYul(yulIROptimized, m_mainContract);
-	// std::cout << yul << std::endl;
-	// // =============== Generate Yul JSON AST ===============
-	// langutil::CharStream ir = langutil::CharStream(yul, sol_filepath);
+	auto prepass = Prepass(m_src, m_mainContract, m_modifiedSolFilepath.c_str());
+	auto yul = prepass.cleanYul(yulIROptimized, m_mainContract);
 
-	// std::variant<phaser::Program, langutil::ErrorList> maybeProgram = phaser::Program::load(ir);
+	// =============== Generate Yul JSON AST ===============
+	langutil::CharStream ir = langutil::CharStream(yul, m_modifiedSolFilepath);
 
-	// if (auto* errorList = std::get_if<langutil::ErrorList>(&maybeProgram))
-	// {
-	// 	langutil::SingletonCharStreamProvider streamProvider{ir};
-	// 	langutil::SourceReferenceFormatter{std::cerr, streamProvider, true, false}
-	// 		.printErrorInformation(*errorList);
-	// 	std::cerr << std::endl;
-	// }
+	std::variant<phaser::Program, langutil::ErrorList> maybeProgram = phaser::Program::load(ir);
 
-	// yul::Block const&	  ast = get<phaser::Program>(maybeProgram).ast();
-	// yul::AsmJsonConverter jsonConverter{{}};
-	// std::cout << jsonConverter(ast) << std::endl;
-	// std::cout << yulIROptimized << std::endl;
-	// static FunctionDefinition const* resolveFunctionCall(FunctionCall const& _functionCall,
-	// ContractDefinition const* _mostDerivedContract);
+	if (auto* errorList = std::get_if<langutil::ErrorList>(&maybeProgram))
+	{
+		langutil::SingletonCharStreamProvider streamProvider{ir};
+		langutil::SourceReferenceFormatter{std::cerr, streamProvider, true, false}
+			.printErrorInformation(*errorList);
+		std::cerr << std::endl;
+	}
+
+	yul::Block const& ast = get<phaser::Program>(maybeProgram).ast();
+	yul::AsmJsonConverter jsonConverter{{}};
+	std::cout << jsonConverter(ast) << std::endl;
 }

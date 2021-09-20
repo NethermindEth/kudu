@@ -9,10 +9,10 @@ contract WARP {
 
 
     function deposit_dynArgs(address[] calldata sender, uint256[] calldata value) public payable {
-        deposit_351(sender[2], value[4]);
+        deposit(sender[2], value[4]);
     }
 
-    function deposit_351(address sender, uint256 value) public payable {
+    function deposit(address sender, uint256 value) public payable {
         balanceOf[sender] += value;
     }
 

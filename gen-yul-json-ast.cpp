@@ -99,41 +99,7 @@ int main(int argc, char* argv[])
 	sourceData.m_srcSplit		  = splitStr(sourceData.m_src);
 	sourceData.m_srcSplitOriginal = splitStr(sourceData.m_src);
 	sourceData.compressSigs();
-	sourceData.setSourceData(sourceData.m_filepath.c_str());
-
-	// solidity::langutil::CharStream irStream;
-	// try
-	// {
-	// 	irStream = generateIR(sourceData.m_modifiedSolFilepath.c_str());
-	// }
-	// catch (boost::exception const& exc)
-	// {
-	// 	std::cerr << boost::diagnostic_information(exc) << std::endl;
-	// 	return 1;
-	// }
-
-	// // =============== Yul pre-pass ===============
-	// auto prepass = Prepass(
-	// 	sourceData.m_src, main_contract, sourceData.m_modifiedSolFilepath.c_str());
-	// std::string irSource = irStream.source();
-	// auto		yul		 = prepass.cleanYul(irSource, main_contract);
-
-	// // =============== Generate Yul JSON AST ===============
-	// solidity::langutil::CharStream ir = solidity::langutil::CharStream(yul, sol_filepath);
-	// std::variant<solidity::phaser::Program, solidity::langutil::ErrorList>
-	// 	maybeProgram = solidity::phaser::Program::load(ir);
-	// if (auto* errorList = std::get_if<solidity::langutil::ErrorList>(&maybeProgram))
-	// {
-	// 	solidity::langutil::SingletonCharStreamProvider streamProvider{ir};
-	// 	solidity::langutil::SourceReferenceFormatter{std::cerr, streamProvider, true, false}
-	// 		.printErrorInformation(*errorList);
-	// 	std::cerr << std::endl;
-	// 	return 1;
-	// }
-
-	// solidity::yul::Block const&		ast = get<solidity::phaser::Program>(maybeProgram).ast();
-	// solidity::yul::AsmJsonConverter jsonConverter{{}};
-	// std::cout << jsonConverter(ast) << std::endl;
+	sourceData.prepareSoliditySource(sourceData.m_filepath.c_str());
 
 	return 0;
 }
