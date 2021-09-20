@@ -68,7 +68,7 @@ solidity::langutil::CharStream generateIR(char const* sol_filepath)
 	}
 	ir.remove_prefix(IR_HEADER.size());
 
-	return solidity::langutil::CharStream{ir.data(), "ir_stream"};
+	return solidity::langutil::CharStream{std::string{ir}, "ir_stream"};
 }
 
 
