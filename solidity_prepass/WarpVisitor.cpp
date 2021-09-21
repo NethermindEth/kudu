@@ -415,7 +415,7 @@ void SourceData::dynFuncArgsPass(const char* solFilepath)
 	// For now we are only supporting single files;
 	for (auto p: paths)
 	{
-		this->m_baseFileName = p.filename();
+		this->m_baseFileName = p;
 	}
 
 	this->m_fileReader = std::move(cli.fileReader());
