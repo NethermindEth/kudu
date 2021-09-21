@@ -516,7 +516,7 @@ void SourceData::prepareSoliditySource(const char* sol_filepath)
 		std::cerr << std::endl;
 	}
 
-	yul::Block const& ast = get<phaser::Program>(maybeProgram).ast();
+	yul::Block const& ast = std::get<phaser::Program>(maybeProgram).ast();
 	yul::AsmJsonConverter jsonConverter{{}};
 	std::cout << jsonConverter(ast) << std::endl;
 }
