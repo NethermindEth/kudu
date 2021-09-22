@@ -7,7 +7,6 @@ contract WARP {
     mapping (address => uint)                       public  balanceOf;
     mapping (address => mapping (address => uint))  public  allowance;
 
-
     function deposit_dynArgs(address[] calldata sender, uint256[] calldata value) public payable {
         deposit(sender[2], value[4]);
     }

@@ -9,6 +9,8 @@
 #include <set>
 #include <vector>
 
+#include "common/json.hpp"
+using json = nlohmann::json;
 
 struct FinalizedYul
 {
@@ -17,34 +19,48 @@ struct FinalizedYul
 	int						 entrySeqEnd;
 };
 
-struct EntrySwitchCases
-{
-};
 
+struct Selector
+{
+	std::string functionName;
+	std::string selector;
+};
 
 class Prepass
 {
 public:
 	std::string cleanYul(std::string code, std::string& main_contract);
-	[[nodiscard]] Prepass(
-		std::string sol_src, std::string main_contract, std::string contractPath);
+	Prepass(std::string				 sol_src,
+			std::string				 main_contract,
+			std::string				 contractPath,
+			std::vector<std::string> storageVars);
 	void tester();
 
 private:
 	std::vector<std::string> removePreamble(std::vector<std::string> lines);
-	std::vector<std::string> m_solSrcLines_mainContract;
-	std::vector<std::string> m_solSrcLines_full;
 	std::vector<std::string> getRuntimeYul(std::vector<std::string> yul);
-	std::vector<std::string>
-	cleanEntryFunction(std::vector<std::string> func, int funcEnd);
+	std::vector<std::string> cleanEntryFunction(std::vector<std::string> func,
+												int funcEnd);
 	std::vector<std::string> getEndOfOjbect(std::vector<std::string> lines);
-	std::vector<std::string> getMainObject(std::string code, std::string& main_contract);
-	bool					 isRuntimeObj(std::string str);
-	int						 getSwitchStart(const std::vector<std::string>& func);
-	FinalizedYul			 removeDeploymentCode(std::vector<std::string> code);
-	std::string
-	addEntryFunc(std::vector<std::string> entrySeq, std::vector<std::string> cleanCode);
+	std::vector<std::string>
+	concatCaseBlocks(std::vector<std::string> entrySeq);
+	std::vector<std::string> getMainObject(std::string	code,
+										   std::string& main_contract);
+
+	void		 getPublicFunchashes(const std::string& contract_path);
+	bool		 isRuntimeObj(std::string str);
+	int			 getSwitchStart(const std::vector<std::string>& func);
+	int			 endOfCaseBlock(std::vector<std::string> caseBlock);
+	FinalizedYul removeDeploymentCode(std::vector<std::string> code);
+	std::string	 removeNonDynamicDispatch(std::vector<std::string> entrySeq);
+	std::string	 exec(std::string cmdStr);
+	std::string	 addEntryFunc(std::vector<std::string> entrySeq,
+							  std::vector<std::string> cleanCode);
 	std::string	 m_unMarkedSolSource;
 	std::string	 m_markedSolSource;
 	std::string	 m_contractPath;
+	std::vector<std::string> m_storageVars;
+	std::vector<std::string> m_solSrcLines_mainContract;
+	std::vector<std::string> m_solSrcLines_full;
+	std::vector<Selector>	 m_publicFunctionSelectors;
 };

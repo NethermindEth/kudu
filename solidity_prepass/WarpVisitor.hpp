@@ -8,8 +8,6 @@
 
 #include <string>
 
-#include "common/json.hpp"
-using json = nlohmann::json;
 using namespace solidity::frontend;
 using namespace solidity;
 struct PublicFunctions
@@ -30,11 +28,18 @@ struct ContractData
 
 struct MarkedFunctions
 {
-	std::vector<std::string> names;
-	std::vector<std::string> selectors;
+	std::vector<std::string>			  names;
+	std::vector<std::string>			  selectors;
 	std::vector<std::vector<Type const*>> parameters;
 };
-
+struct FunctionData
+{
+	std::vector<Type const*> parameterTypes;
+	std::vector<Type const*> returnTypes;
+	std::vector<Type const*> bodyTypes;
+	Block const&			 body;
+	bool					 hasForLoop;
+};
 
 class SourceData: public ASTConstVisitor
 {
@@ -46,24 +51,27 @@ public:
 		FunctionCallPass,
 	};
 
-	SourceData(std::string main_contract, std::string src, std::string filepath);
+	SourceData(std::string main_contract,
+			   std::string src,
+			   std::string filepath);
 
-	CommandLineInterface getCli(char const* sol_filepath);
+	CommandLineInterface	  getCli(char const* sol_filepath);
 	FunctionDefinition const* resolveFunctionCall(const ContractDefinition& c,
-												  FunctionCall const& f);
-	FunctionDefinition const* insideWhichFunction(langutil::SourceLocation const& location);
+												  FunctionCall const&		f);
+	FunctionDefinition const*
+	insideWhichFunction(langutil::SourceLocation const& location);
 
-	std::vector<std::string> getPublicFunchashes(const std::string& contract_path);
-	std::string exec(std::string cmdStr);
-	std::string getStorageVarDummyFuncMapping(std::string typeSig, Type const* _type);
+	std::string getStorageVarDummyFuncMapping(std::string typeSig,
+											  Type const* _type);
 	std::string getStorageVarDummyFuncInt(Type const* _type);
 
-	int getSigEnd(int start);
+	int	 getSigEnd(int start);
 	bool visit(FunctionDefinition const& _node) override;
 	bool visit(FunctionCall const& _node) override;
 	bool visit(Identifier const& _node) override;
 	bool visitNode(ASTNode const& node) override;
 	bool contains_warp(std::vector<std::string> vec, std::string search);
+	bool isSimpleFunctionDef(FunctionDefinition const& func);
 	void prepareSoliditySource(const char* sol_filepath);
 	void setCompilerOptions(std::shared_ptr<CompilerStack> compiler);
 	void writeModifiedSolidity();
@@ -71,15 +79,15 @@ public:
 	void dynFuncArgsPass(const char* solFilepath);
 	void storageVarPass();
 
-	std::vector<std::string> m_storageVars_str;
-	std::vector<std::string> m_srcSplit;
-	std::vector<std::string> m_srcSplitDynArgsFuncPass;
-	std::vector<std::string> m_srcSplitDynArgsFuncCallPass;
-	std::vector<std::string> m_srcSplitStorageVarsPass;
-	std::vector<std::string> m_srcSplitOriginal;
-	std::vector<std::string> m_functionNames;
+	std::vector<std::string>			m_storageVars_str;
+	std::vector<std::string>			m_srcSplit;
+	std::vector<std::string>			m_srcSplitDynArgsFuncPass;
+	std::vector<std::string>			m_srcSplitDynArgsFuncCallPass;
+	std::vector<std::string>			m_srcSplitStorageVarsPass;
+	std::vector<std::string>			m_srcSplitOriginal;
+	std::vector<std::string>			m_functionNames;
 	std::map<std::string, ContractData> m_contracts;
-	boost::filesystem::path m_baseFileName;
+	boost::filesystem::path				m_baseFileName;
 
 	std::string m_mainContract;
 	std::string m_contractDef;
@@ -91,23 +99,24 @@ public:
 	std::string m_srcDynArgsFuncCallPass;
 	std::string m_srcStorageVarsPass;
 
-	std::shared_ptr<CompilerStack> m_compiler;
-	OptimiserSettings m_compilerOptimizerSettings;
-	FileReader m_fileReader;
-	std::shared_ptr<CommandLineInterface> m_cli;
-	CommandLineOptions m_options;
-	std::vector<FunctionDefinition const*> m_definedFunctions;
+	std::shared_ptr<CompilerStack>			m_compiler;
+	OptimiserSettings						m_compilerOptimizerSettings;
+	FileReader								m_fileReader;
+	std::shared_ptr<CommandLineInterface>	m_cli;
+	CommandLineOptions						m_options;
+	std::vector<FunctionDefinition const*>	m_definedFunctions;
 	std::vector<const VariableDeclaration*> m_storageVars_astNodes;
-	PassType m_currentPass;
+	PassType								m_currentPass;
 
 private:
 	bool isPublic(Visibility _visibility);
 	bool hasDynamicArgs(std::string params);
-	bool checkTypeEqaulity(std::vector<Type const*> const& t1, std::vector<Type const*> t2);
+	bool checkTypeEqaulity(std::vector<Type const*> const& t1,
+						   std::vector<Type const*>		   t2);
 
 	std::vector<std::string> m_storageVars;
 	std::vector<std::string> m_hashNames;
-	PublicFunctions m_publicFunctions;
-	MarkedFunctions m_markedFunctions;
-	int m_publicFunctionCount;
+	PublicFunctions			 m_publicFunctions;
+	MarkedFunctions			 m_markedFunctions;
+	int						 m_publicFunctionCount;
 };

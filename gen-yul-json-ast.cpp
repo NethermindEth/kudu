@@ -32,7 +32,8 @@ std::string slurpFile(std::string_view path)
 
 solidity::langutil::CharStream generateIR(char const* sol_filepath)
 {
-	std::string yulOptimiserSteps = solidity::frontend::OptimiserSettings::DefaultYulOptimiserSteps;
+	std::string yulOptimiserSteps = solidity::frontend::OptimiserSettings::
+		DefaultYulOptimiserSteps;
 	erase(yulOptimiserSteps, 'i'); // remove FullInliner
 	yulOptimiserSteps += " x";	   // that flattens function calls: only one
 								   // function call per statement is allowed
@@ -46,24 +47,29 @@ solidity::langutil::CharStream generateIR(char const* sol_filepath)
 		  sol_filepath,
 	  };
 
-	std::istringstream						 sin; // never used, but the CLI requires it
-	std::ostringstream						 sout;
+	std::istringstream sin; // never used, but the CLI requires it
+	std::ostringstream sout;
 	solidity::frontend::CommandLineInterface cli{sin, sout, std::cerr};
 	if (not cli.parseArguments(solc_argc, solc_argv))
-		BOOST_THROW_EXCEPTION(std::runtime_error{"solc CLI failed to parse arguments"});
+		BOOST_THROW_EXCEPTION(
+			std::runtime_error{"solc CLI failed to parse arguments"});
 	if (not cli.readInputFiles())
-		BOOST_THROW_EXCEPTION(std::runtime_error{"solc failed to read input files"});
+		BOOST_THROW_EXCEPTION(
+			std::runtime_error{"solc failed to read input files"});
 	if (not cli.processInput())
-		BOOST_THROW_EXCEPTION(std::runtime_error{"solc failed to process input"});
+		BOOST_THROW_EXCEPTION(
+			std::runtime_error{"solc failed to process input"});
 	if (not cli.actOnInput())
-		BOOST_THROW_EXCEPTION(std::runtime_error{"solc failed to act on input"});
+		BOOST_THROW_EXCEPTION(
+			std::runtime_error{"solc failed to act on input"});
 
 	std::string_view		   ir		 = sout.view();
 	constexpr std::string_view IR_HEADER = "Optimized IR:";
 	if (ir.substr(0, IR_HEADER.size()) != IR_HEADER)
 	{
 		std::ostringstream es;
-		es << "Expected '" << IR_HEADER << "' header in solc IR output but not found" << std::endl;
+		es << "Expected '" << IR_HEADER
+		   << "' header in solc IR output but not found" << std::endl;
 		BOOST_THROW_EXCEPTION(std::runtime_error{es.str()});
 	}
 	ir.remove_prefix(IR_HEADER.size());
@@ -78,9 +84,10 @@ int main(int argc, char* argv[])
 	{
 		std::cerr << "USAGE: " << argv[0] << " SOLIDITY-FILE "
 				  << "MAIN-CONTRACT-NAME" << std::endl;
-		std::cerr << "Where MAIN-CONTRACT-NAME is the name of the primary contract "
-					 "(non-interface,  non-library, non-abstract contract)"
-				  << std::endl;
+		std::cerr
+			<< "Where MAIN-CONTRACT-NAME is the name of the primary contract "
+			   "(non-interface,  non-library, non-abstract contract)"
+			<< std::endl;
 		return 1;
 	}
 
@@ -89,10 +96,11 @@ int main(int argc, char* argv[])
 	std::string contractContents = slurpFile(sol_filepath);
 
 	// =============== Solidity pre-pass ===============
-	solidity::langutil::CharStream	  charStream{contractContents, sol_filepath};
-	solidity::langutil::ErrorList	  errors;
+	solidity::langutil::CharStream charStream{contractContents, sol_filepath};
+	solidity::langutil::ErrorList  errors;
 	solidity::langutil::ErrorReporter errorReporter{errors};
-	solidity::frontend::Parser		  parser{errorReporter, solidity::langutil::EVMVersion()};
+	solidity::frontend::Parser		  parser{errorReporter,
+										 solidity::langutil::EVMVersion()};
 
 	auto	   sourceUnit = parser.parse(charStream);
 	SourceData sourceData(main_contract, contractContents, sol_filepath);
