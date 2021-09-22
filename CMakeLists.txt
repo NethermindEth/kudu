@@ -91,10 +91,10 @@ target_include_directories(full-solidity
          INTERFACE ${solidity_SOURCE_DIR} ${solidity_BINARY_DIR}/deps/include)
 add_dependencies(full-solidity solidity-project)
 
-set (WARP_LIBS common/json.hpp common/library.hpp yul_prepass/Prepass.hpp yul_prepass/Prepass.cpp 
-        solidity_prepass/WarpVisitor.hpp solidity_prepass/WarpVisitor.cpp 
+set (WARP_LIBS common/json.hpp common/library.hpp yul_prepass/Prepass.hpp yul_prepass/Prepass.cpp
+        solidity_prepass/WarpVisitor.hpp solidity_prepass/WarpVisitor.cpp
          solidity_prepass/StorageVariables.hpp solidity_prepass/StorageVariables.cpp)
-        
+
 add_library(warp-solidity ${WARP_LIBS})
 add_dependencies(warp-solidity solidity-project)
 target_include_directories(warp-solidity

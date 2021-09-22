@@ -37,13 +37,13 @@ std::vector<std::string> StorageVars::getStorageVars(const char* sol_filepath)
 	// For now we are only supporting single files;
 	for (auto p: paths)
 	{
-		this->m_baseFileName = p.filename();
+		this->m_baseFileName = p;
 	}
 
 	solidity::frontend::FileReader m_fileReader = std::move(cli.fileReader());
 
 	this->m_compiler
-		= make_unique<solidity::frontend::CompilerStack>(m_fileReader.reader());
+		= std::make_unique<solidity::frontend::CompilerStack>(m_fileReader.reader());
 	solidity::frontend::CommandLineOptions m_options = cli.options();
 	if (m_options.metadata.literalSources)
 		m_compiler->useMetadataLiteralSources(true);
