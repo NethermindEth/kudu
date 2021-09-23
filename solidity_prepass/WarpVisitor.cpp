@@ -471,4 +471,6 @@ void SourceData::prepareSoliditySource(const char* sol_filepath)
 		std::cerr << std::endl;
 	}
 	std::cout << get<phaser::Program>(maybeProgram).toJson() << std::endl;
+
 }
+

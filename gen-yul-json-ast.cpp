@@ -63,7 +63,7 @@ solidity::langutil::CharStream generateIR(char const* sol_filepath)
 		BOOST_THROW_EXCEPTION(
 			std::runtime_error{"solc failed to act on input"});
 
-	std::string_view		   ir		 = sout.view();
+	std::string_view		   ir		 = sout.str();
 	constexpr std::string_view IR_HEADER = "Optimized IR:";
 	if (ir.substr(0, IR_HEADER.size()) != IR_HEADER)
 	{
