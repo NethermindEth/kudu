@@ -1,36 +1,32 @@
-pragma solidity >=0.4.18;
+pragma solidity ^0.8.6;
 
 contract WARP {
-    uint8  public decimals     = 18;
-    uint256 public totalSupply = 100000000000000000000000000000000000;
-    uint8 private age;
-    mapping (address => uint)                       public  balanceOf;
-    mapping (address => mapping (address => uint))  public  allowance;
+    uint8  public decimals    = 18;
+    uint256 public totalSupply= 100000000000000000000000000000000000;
 
-    function deposit(address[] calldata sender, uint256[] calldata value) public payable {
-        deposit(sender[2], value[4]);
-    }
+    mapping (uint => uint)                       public  balanceOf;
+    mapping (uint => mapping (uint => uint))  public  allowance;
 
-    function deposit(address sender, uint256 value) public payable {
+    function deposit(uint sender, uint256 value) public payable returns (uint, uint){
         balanceOf[sender] += value;
+        return (21,12);
     }
 
-    function withdraw(uint wad, address sender) public payable {
-        require(balanceOf[sender] >= wad);
-        balanceOf[sender] -= wad;
+    function withdraw(uint[] calldata wad, uint sender) public payable {
+        require(balanceOf[sender] >= wad[0]);
+        balanceOf[sender] -= wad[0];
     }
 
-    function approve(address guy, uint wad, address sender) public payable returns (bool) {
+    function approve(uint guy, uint wad, uint sender) public payable returns (bool) {
         allowance[sender][guy] = wad;
         return true;
     }
 
-    function transferFrom(address src, 
-        address[] calldata dst, uint wad, address sender, uint256[] calldata value)
+    function transferFrom(uint src, uint dst, uint wad, uint sender)
         public payable
         returns (bool)
     {
-        deposit(dst, value);
+
         if (src != sender) {
             require(allowance[src][sender] >= wad);
             require(balanceOf[src] >= wad);
@@ -38,11 +34,8 @@ contract WARP {
         }
 
         balanceOf[src] -= wad;
-        balanceOf[dst[5]] += wad;
+        balanceOf[dst] += wad;
 
         return true;
     }
 }
-
-
-

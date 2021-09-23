@@ -33,20 +33,20 @@ bool SourceData::visitNode(ASTNode const& node)
 
 int SourceData::getSigEnd(int start)
 {
-	for (auto i = start; i < m_srcSplit.size(); i++)
+	for (size_t i = start; i < m_srcSplit.size(); i++)
 	{
 		if (m_srcSplit[i].find("{") != std::string::npos)
 			return i;
 	}
-	std::runtime_error("Failed to find end of signature");
+	throw std::runtime_error("Failed to find end of signature");
+	return -1;
 }
 
 void SourceData::compressSigs()
 {
 	std::vector<std::string> newSplit;
 	auto					 jump  = 1;
-	auto					 count = 0;
-	for (auto i = 0; i < m_srcSplit.size(); i += jump)
+	for (size_t i = 0; i < m_srcSplit.size(); i += jump)
 	{
 		if (m_srcSplit[i].find("function") != std::string::npos)
 		{
@@ -146,13 +146,10 @@ bool SourceData::visit(FunctionDefinition const& _node)
 			{
 				int	 paramsStart   = _node.parameterList().location().start + 1;
 				int	 paramsEnd	   = _node.parameterList().location().end - 1;
-				int	 functionStart = _node.location().start;
-				int	 functionEnd   = _node.location().end;
 				int	 bodyStart	   = _node.body().location().start;
 				int	 bodyEnd	   = _node.body().location().end;
 				auto body		   = std::string(m_src.begin() + bodyStart + 1,
 										 m_src.begin() + bodyEnd);
-				auto funcLocation  = std::make_pair(functionStart, functionEnd);
 				auto params		   = std::string(m_src.begin() + paramsStart,
 											 m_src.begin() + paramsEnd);
 				if (not contains_warp(m_storageVars, _node.name())
@@ -173,21 +170,21 @@ bool SourceData::visit(FunctionDefinition const& _node)
 					auto markedSig	= "    function " + markedName
 									 + std::string(sig.begin() + sig.find('('),
 												   sig.end());
-					m_markedFunctions.names.emplace_back(_node.name());
+					m_dynArgFunctions.names.emplace_back(_node.name());
 					std::vector<Type const*> params;
 					for (auto param: _node.parameters())
 					{
 						params.emplace_back(param->type());
 					}
-					m_markedFunctions.parameters.emplace_back(params);
-					m_markedFunctions.selectors.emplace_back(
+					m_dynArgFunctions.parameters.emplace_back(params);
+					m_dynArgFunctions.selectors.emplace_back(
 						_node.externalIdentifierHex());
 					m_srcSplit[index] = markedSig;
 				}
 			}
 			return visitNode(_node);
 		}
-		catch (boost::wrapexcept<solidity::langutil::InternalCompilerError> e)
+		catch (boost::wrapexcept<solidity::langutil::InternalCompilerError>& e)
 		{
 			return visitNode(_node);
 		}
@@ -196,8 +193,6 @@ bool SourceData::visit(FunctionDefinition const& _node)
 		return visitNode(_node);
 	}
 }
-
-bool SourceData::isSimpleFunctionDef(FunctionDefinition const& func) {}
 
 bool SourceData::visit(FunctionCall const& _node)
 {
@@ -212,8 +207,8 @@ bool SourceData::visit(FunctionCall const& _node)
 		{
 			auto selector = funcDef->externalIdentifierHex();
 			int	 found	  = 0;
-			std::for_each(m_markedFunctions.selectors.begin(),
-						  m_markedFunctions.selectors.end(),
+			std::for_each(m_dynArgFunctions.selectors.begin(),
+						  m_dynArgFunctions.selectors.end(),
 						  [&found, &selector](const std::string& id)
 						  { found += int((id == selector)); });
 			if (found == 1)
@@ -251,6 +246,7 @@ bool SourceData::visit(FunctionCall const& _node)
 FunctionDefinition const*
 SourceData::insideWhichFunction(langutil::SourceLocation const& location)
 {
+	FunctionDefinition const* dummy;
 	for (auto func: m_definedFunctions)
 	{
 		if (func->location().contains(location))
@@ -258,38 +254,9 @@ SourceData::insideWhichFunction(langutil::SourceLocation const& location)
 			return func;
 		}
 	}
-	assert(false);
+	throw std::runtime_error("failed to find which function the given SourceLocation falls in");
+	return dummy;
 }
-
-// TODO
-std::string SourceData::getStorageVarDummyFuncMapping(std::string typeSig,
-													  Type const* _type)
-{
-	if (MappingType const* mapping = dynamic_cast<MappingType const*>(_type))
-	{
-		auto nestedNess = std::count(typeSig.begin(), typeSig.end(), '=');
-		return "";
-	}
-	return "";
-}
-
-
-// TODO
-std::string SourceData::getStorageVarDummyFuncInt(Type const* _type)
-{
-	if (IntegerType const* type = dynamic_cast<IntegerType const*>(_type))
-	{
-	}
-	else if (RationalNumberType const* type = dynamic_cast<
-				 RationalNumberType const*>(_type))
-	{
-	}
-}
-
-// bool SourceData::visit(IndexAccess const& _node)
-// {
-// 	return true;
-// }
 
 bool SourceData::visit(Identifier const& _node)
 {
@@ -312,7 +279,6 @@ bool SourceData::visit(Identifier const& _node)
 				{
 				case Type::Category::Mapping:
 				{
-					getStorageVarDummyFuncMapping(typeSig, type);
 					break;
 				}
 				case Type::Category::Integer:
@@ -341,7 +307,7 @@ bool SourceData::checkTypeEqaulity(std::vector<Type const*> const& t1,
 		return false;
 	else
 	{
-		for (auto i = 0; i < t1.size(); ++i)
+		for (size_t i = 0; i < t1.size(); ++i)
 		{
 			if (*t1[i] != *t2[i])
 				return false;
@@ -393,7 +359,7 @@ void SourceData::dynFuncArgsPass(const char* solFilepath)
 	// For now we are only supporting single files;
 	for (auto p: paths)
 	{
-		this->m_baseFileName = p.filename();
+		this->m_baseFileName = p;
 	}
 
 	this->m_fileReader = std::move(cli.fileReader());
@@ -440,7 +406,7 @@ void SourceData::storageVarPass()
 	// For now we are only supporting single files;
 	for (auto p: paths)
 	{
-		this->m_baseFileName = p.filename();
+		this->m_baseFileName = p;
 	}
 	this->m_fileReader = std::move(newCli.fileReader());
 	this->m_options	   = newCli.options();
@@ -488,7 +454,6 @@ void SourceData::prepareSoliditySource(const char* sol_filepath)
 						   m_modifiedSolFilepath.c_str(),
 						   m_storageVars_str);
 	auto yul	 = prepass.cleanYul(yulIROptimized, m_mainContract);
-
 	// =============== Generate Yul JSON AST ===============
 	langutil::CharStream ir = langutil::CharStream(yul, m_modifiedSolFilepath);
 
@@ -505,9 +470,5 @@ void SourceData::prepareSoliditySource(const char* sol_filepath)
 			.printErrorInformation(*errorList);
 		std::cerr << std::endl;
 	}
-
-	// std::cout << get<phaser::Program>(maybeProgram).toJson() << std::endl;
-	yul::Block const&	  ast = get<phaser::Program>(maybeProgram).ast();
-	yul::AsmJsonConverter jsonConverter{{}};
-	// std::cout << jsonConverter(ast) << std::endl;
+	std::cout << get<phaser::Program>(maybeProgram).toJson() << std::endl;
 }

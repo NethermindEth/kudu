@@ -1,22 +1,21 @@
 #include "Prepass.hpp"
-#include "common/library.hpp"
-#include <set>
-#include <sstream>
 
 using namespace boost;
+
 
 Prepass::Prepass(std::string			  sol_src,
 				 std::string			  main_contract,
 				 std::string			  contractPath,
 				 std::vector<std::string> storageVars)
 {
-	this->m_contractPath = contractPath;
-	this->m_storageVars	 = storageVars;
+	std::vector<std::string> a = {"hello", "world"};
+	this->m_contractPath	   = contractPath;
+	this->m_storageVars		   = storageVars;
 	this->getPublicFunchashes(contractPath);
 	std::vector<std::string> lines = splitStr(sol_src);
 	std::ostringstream		 search;
 	search << "contract " << main_contract;
-	for (auto i = 0; i < lines.size(); ++i)
+	for (size_t i = 0; i < lines.size(); ++i)
 	{
 		if (lines[i].find(search.str()) != std::string::npos)
 		{
@@ -38,6 +37,7 @@ bool isFunctionSig(std::string line)
 	}
 	return false;
 }
+
 
 bool Prepass::isRuntimeObj(std::string str)
 {
@@ -131,7 +131,7 @@ struct EntrySeqData
 
 int Prepass::getSwitchStart(const std::vector<std::string>& func)
 {
-	for (auto i = 0; i < func.size(); ++i)
+	for (size_t i = 0; i < func.size(); ++i)
 	{
 		if (func[i].find("switch _") != std::string::npos)
 		{
@@ -142,15 +142,6 @@ int Prepass::getSwitchStart(const std::vector<std::string>& func)
 		std::runtime_error{"failed to find the start of switch statement"});
 }
 
-std::vector<std::string>
-Prepass::cleanEntryFunction(std::vector<std::string> func, int funcEnd)
-{
-	EntrySeqData entrySeqData;
-	entrySeqData.switchStart = getSwitchStart(func);
-	for (auto i = 0; i < func.size(); ++i)
-	{
-	}
-}
 
 std::vector<std::string> Prepass::getEndOfOjbect(std::vector<std::string> lines)
 {
@@ -205,54 +196,117 @@ std::vector<std::string> Prepass::getMainObject(std::string	 code,
 
 std::string Prepass::removeNonDynamicDispatch(std::vector<std::string> entrySeq)
 {
-	entrySeq = concatCaseBlocks(entrySeq);
-	for (auto i = 0; i < entrySeq.size(); i++)
+	auto		newEntrySeq = concatCaseBlocks(entrySeq);
+	std::string prefix;
+	std::find_if(entrySeq.begin(),
+				 entrySeq.end(),
+				 [&prefix](const std::string& line)
+				 {
+					 if (line.find("switch") != std::string::npos)
+					 {
+						 prefix += line + "\n";
+						 return true;
+					 }
+					 else
+					 {
+						 prefix += line + "\n";
+						 return false;
+					 }
+				 });
+	std::string entryStr;
+	for (size_t i = 0; i < newEntrySeq.size(); i++)
 	{
-		if (entrySeq[i].find("case") != std::string::npos)
+		if (newEntrySeq[i].find("case") != std::string::npos)
 		{
+			auto selectorInEntrySeq = newEntrySeq[i].substr(
+				newEntrySeq[i].find("0x") + 2,
+				8);
+			auto it	  = std::find(m_publicFunctionSelectors.selectors.begin(),
+								  m_publicFunctionSelectors.selectors.end(),
+								  selectorInEntrySeq);
+			bool isEq = it != m_publicFunctionSelectors.selectors.end();
+			int	 idx;
+			if (isEq)
+				idx = it - m_publicFunctionSelectors.selectors.begin();
+			else
+				continue;
+
+			auto funName = m_publicFunctionSelectors.functionNames[idx];
+			if (isEq and (funName.find("_dynArgs") != std::string::npos))
+			{
+				entryStr += newEntrySeq[i] + "\n";
+			}
+			else
+			{
+				continue;
+			}
 		}
 	}
+	std::vector<int> idxs = {4, 3, 2};
+	for (auto idx : idxs)
+	{ 
+		if (entrySeq[entrySeq.size() - idx].find("revert_") != std::string::npos)
+		{
+			continue;
+		}
+		else
+		{
+			entryStr += entrySeq[entrySeq.size() - idx] + "\n"; 
+		}
+	}
+	entryStr = prefix + entryStr;
+	return entryStr;
 }
 
 std::vector<std::string>
 Prepass::concatCaseBlocks(std::vector<std::string> entrySeq)
 {
 	std::vector<std::string> newSeq;
-	for (auto i = 0; i < entrySeq.size(); i++)
+	int						 increment = 1;
+	for (size_t i = 0; i < entrySeq.size(); i += increment)
 	{
 		if (entrySeq[i].find("case") != std::string::npos)
 		{
-			int end = endOfCaseBlock(
-				std::vector<std::string>(entrySeq.begin() + i + 1,
-										 entrySeq.end()));
-			end = end + i;
-			newSeq.emplace_back(
-				std::vector<std::string>(entrySeq.begin() + i,
-										 entrySeq.begin() + end));
+			std::string singleStr;
+			std::tie(singleStr, increment) = endOfCaseBlock(entrySeq, i + 1);
+			singleStr					   = entrySeq[i] + "\n" + singleStr;
+			newSeq.emplace_back(singleStr);
 		}
-		else
-		{
-			newSeq.emplace_back(entrySeq[i]);
-		}
-	}
-	for (auto line: newSeq)
-	{
-		std::cout << line << std::endl;
 	}
 	return newSeq;
 }
 
-int Prepass::endOfCaseBlock(std::vector<std::string> caseBlock)
+std::pair<std::string, int>
+Prepass::endOfCaseBlock(std::vector<std::string> caseBlock, int startPos)
 {
-	for (auto i = 0; i < caseBlock.size(); i++)
+	for (size_t i = startPos; i < caseBlock.size(); i++)
 	{
 		if (caseBlock[i].find("case") != std::string::npos)
 		{
-			return i;
+			auto block = std::vector<std::string>(caseBlock.begin() + startPos,
+												  caseBlock.begin() + i);
+			std::string strRepr;
+			std::for_each(block.begin(),
+						  block.end(),
+						  [&strRepr](std::string line)
+						  { strRepr += line + "\n"; });
+			return std::pair<std::string, int>(strRepr, i - startPos + 1);
+		}
+		else if (caseBlock[i].find("return") != std::string::npos
+				 and caseBlock[i + 2].find("case") == std::string::npos)
+		{
+			auto block = std::vector<std::string>(caseBlock.begin() + startPos,
+												  caseBlock.begin() + i + 2);
+			std::string strRepr;
+			std::for_each(block.begin(),
+						  block.end(),
+						  [&strRepr](std::string line)
+						  { strRepr += line + "\n"; });
+			return std::pair<std::string, int>(strRepr, i - startPos + 1);
 		}
 	}
 	throw std::runtime_error("Could not find end of case block");
-	return -1;
+	return std::pair<std::string, int>("", -1);
 }
 
 void Prepass::getPublicFunchashes(const std::string& contract_path)
@@ -270,9 +324,10 @@ void Prepass::getPublicFunchashes(const std::string& contract_path)
 			std::string name = std::string(key.begin(), key.begin() + end);
 			if (not contains_warp(this->m_storageVars, name))
 			{
-				Selector selector = Selector{.functionName = name,
-											 .selector	   = hash.value()};
-				this->m_publicFunctionSelectors.emplace_back(selector);
+				this->m_publicFunctionSelectors.functionNames.emplace_back(
+					name);
+				this->m_publicFunctionSelectors.selectors.emplace_back(
+					hash.value());
 			}
 		}
 	}
@@ -298,18 +353,13 @@ std::string Prepass::exec(std::string cmdStr)
 std::string Prepass::addEntryFunc(std::vector<std::string> entrySeq,
 								  std::vector<std::string> cleanCode)
 {
-	std::string entryStr;
 	// So we can look ahead by 2 and still make
 	// sure we read all the generated Yul.
 	cleanCode.push_back("\n");
 	cleanCode.push_back("\n");
 	std::string yulStr;
-	concatCaseBlocks(entrySeq);
-	for (auto line: entrySeq)
-	{
-		entryStr += line + "\n";
-	}
-	for (auto i = 0; i < cleanCode.size() - 2; i++)
+	auto entryStr = removeNonDynamicDispatch(entrySeq);
+	for (size_t i = 0; i < cleanCode.size() - 2; i++)
 	{
 		yulStr += cleanCode[i] + "\n";
 		if (cleanCode[i + 2].find("data \".metadata\" hex\"")
@@ -319,7 +369,6 @@ std::string Prepass::addEntryFunc(std::vector<std::string> entrySeq,
 		}
 	}
 	return yulStr;
-	// return removeNonDynamicDispatch(splitStr(yulStr));
 }
 
 std::string Prepass::cleanYul(std::string code, std::string& main_contract)

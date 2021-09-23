@@ -8,6 +8,9 @@
 
 #include <string>
 
+#include "common/library.hpp"
+#include "yul_prepass/Prepass.hpp"
+
 using namespace solidity::frontend;
 using namespace solidity;
 struct PublicFunctions
@@ -32,6 +35,7 @@ struct MarkedFunctions
 	std::vector<std::string>			  selectors;
 	std::vector<std::vector<Type const*>> parameters;
 };
+
 struct FunctionData
 {
 	std::vector<Type const*> parameterTypes;
@@ -59,19 +63,12 @@ public:
 	FunctionDefinition const* resolveFunctionCall(const ContractDefinition& c,
 												  FunctionCall const&		f);
 	FunctionDefinition const*
-	insideWhichFunction(langutil::SourceLocation const& location);
-
-	std::string getStorageVarDummyFuncMapping(std::string typeSig,
-											  Type const* _type);
-	std::string getStorageVarDummyFuncInt(Type const* _type);
-
+		 insideWhichFunction(langutil::SourceLocation const& location);
 	int	 getSigEnd(int start);
 	bool visit(FunctionDefinition const& _node) override;
 	bool visit(FunctionCall const& _node) override;
 	bool visit(Identifier const& _node) override;
 	bool visitNode(ASTNode const& node) override;
-	bool contains_warp(std::vector<std::string> vec, std::string search);
-	bool isSimpleFunctionDef(FunctionDefinition const& func);
 	void prepareSoliditySource(const char* sol_filepath);
 	void setCompilerOptions(std::shared_ptr<CompilerStack> compiler);
 	void writeModifiedSolidity();
@@ -117,6 +114,6 @@ private:
 	std::vector<std::string> m_storageVars;
 	std::vector<std::string> m_hashNames;
 	PublicFunctions			 m_publicFunctions;
-	MarkedFunctions			 m_markedFunctions;
+	MarkedFunctions			 m_dynArgFunctions;
 	int						 m_publicFunctionCount;
 };
