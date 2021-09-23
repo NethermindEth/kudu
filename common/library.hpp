@@ -2,27 +2,24 @@
 
 #include <algorithm>
 #include <boost/algorithm/string.hpp>
+#include <iostream>
 #include <sstream>
 #include <vector>
 
 
+bool contains_warp(std::vector<std::string> vec, std::string search);
 
-std::vector<std::string> splitStr(const std::string& str)
+template <typename TType>
+void print_vector(const std::vector<TType>& vec)
 {
-	std::vector<std::string> strings;
-
-	std::string::size_type pos = 0;
-	std::string::size_type prev = 0;
-	while ((pos = str.find('\n', prev)) != std::string::npos)
-	{
-		auto line = str.substr(prev, pos - prev);
-		strings.push_back(line);
-		prev = pos + 1;
-	}
-
-	// To get the last substring (or only, if delimiter is not found)
-	auto lastLine = str.substr(prev);
-	strings.push_back(lastLine);
-
-	return strings;
+    typename  std::vector<TType>::const_iterator it;
+    std::cout << "(";
+    for(it = vec.begin(); it != vec.end(); it++)
+    {
+        if(it!= vec.begin()) std::cout << ",";
+        std::cout << (*it);
+    }
+    std::cout << ")";
 }
+
+std::vector<std::string> splitStr(const std::string& str);

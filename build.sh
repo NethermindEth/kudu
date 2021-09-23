@@ -9,3 +9,4 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
 fi
 cmake .. -DCMAKE_BUILD_TYPE=Release
 make -j20
+cp gen-yul-json-ast ../
