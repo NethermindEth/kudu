@@ -92,8 +92,8 @@ target_include_directories(full-solidity
 add_dependencies(full-solidity solidity-project)
 
 
-set (WARP_LIBS common/json.hpp common/library.hpp common/library.cpp yul_prepass/Prepass.hpp yul_prepass/Prepass.cpp 
-        solidity_prepass/WarpVisitor.hpp solidity_prepass/WarpVisitor.cpp 
+set (WARP_LIBS common/json.hpp common/library.hpp common/library.cpp yul_prepass/Prepass.hpp yul_prepass/Prepass.cpp
+        solidity_prepass/WarpVisitor.hpp solidity_prepass/WarpVisitor.cpp)
 
 
 add_library(warp-solidity ${WARP_LIBS})
