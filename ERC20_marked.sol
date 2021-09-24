@@ -27,6 +27,7 @@ contract WARP {
         public payable
         returns (bool)
     {
+
         if (src != sender) {
             require(allowance[src][sender] >= wad);
             require(balanceOf[src] >= wad);
@@ -39,4 +40,5 @@ contract WARP {
         return true;
     }
 }
+
 

@@ -255,6 +255,8 @@ std::string Prepass::removeNonDynamicDispatch(std::vector<std::string> entrySeq)
 		}
 	}
 	entryStr = prefix + entryStr;
+	if (entryStr.find("case") == std::string::npos)
+		return "";
 	return entryStr;
 }
 

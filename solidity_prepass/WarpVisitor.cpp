@@ -456,7 +456,6 @@ void SourceData::prepareSoliditySource(const char* sol_filepath)
 	auto yul	 = prepass.cleanYul(yulIROptimized, m_mainContract);
 	// =============== Generate Yul JSON AST ===============
 	langutil::CharStream ir = langutil::CharStream(yul, m_modifiedSolFilepath);
-
 	std::variant<phaser::Program, langutil::ErrorList>
 		maybeProgram = phaser::Program::load(ir);
 
