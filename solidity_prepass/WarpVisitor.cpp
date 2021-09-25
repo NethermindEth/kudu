@@ -45,7 +45,7 @@ int SourceData::getSigEnd(int start)
 void SourceData::compressSigs()
 {
 	std::vector<std::string> newSplit;
-	auto					 jump  = 1;
+	auto					 jump = 1;
 	for (size_t i = 0; i < m_srcSplit.size(); i += jump)
 	{
 		if (m_srcSplit[i].find("function") != std::string::npos)
@@ -131,12 +131,54 @@ CommandLineInterface SourceData::getCli(char const* sol_filepath)
 	return cli;
 }
 
+void SourceData::markAddressTypesInFunArgs(FunctionDefinition const& _node,
+									  std::string				funcFull)
+{
+	auto funcFullReplaced = funcFull;
+	for (auto param: _node.parameters())
+	{
+		if (param != nullptr)
+		{
+			switch (param->type()->category())
+			{
+			case Type::Category::Address:
+			{
+				auto varName	= param->name();
+				auto markedName = varName + "_addr_t";
+				boost::replace_all(funcFullReplaced, varName, markedName);
+				break;
+			}
+			default:
+				break;
+			}
+		}
+	}
+	auto pair = std::make_pair(funcFull, funcFullReplaced);
+	this->m_addrMarkedFuncs.emplace_back(pair);
+}
+
 bool SourceData::visit(FunctionDefinition const& _node)
 {
 	switch (m_currentPass)
 	{
+	case PassType::AddrTypePass:
+	{
+		auto funcFull = std::string(m_src.begin() + _node.location().start,
+									m_src.begin() + _node.location().end + 1);
+		markAddressTypesInFunArgs(_node, funcFull);
+		return visitNode(_node);
+	}
 	case PassType::FunctionDefinitionPass:
 	{
+		int	 bodyStart = _node.body().location().start;
+		int	 bodyEnd   = _node.body().location().end;
+		auto body	   = std::string(m_src.begin() + bodyStart + 1,
+								 m_src.begin() + bodyEnd);
+		auto sig	   = "    "
+				   + std::string(
+					   m_src.begin() + _node.location().start,
+					   m_src.begin() + _node.body().location().start + 1);
+		auto bodySplit = splitStr(body);
 		m_functionNames.push_back(_node.name());
 		if (_node.isConstructor())
 			return visitNode(_node);
@@ -144,22 +186,13 @@ bool SourceData::visit(FunctionDefinition const& _node)
 		{
 			if (isPublic(_node.visibility()))
 			{
-				int	 paramsStart   = _node.parameterList().location().start + 1;
-				int	 paramsEnd	   = _node.parameterList().location().end - 1;
-				int	 bodyStart	   = _node.body().location().start;
-				int	 bodyEnd	   = _node.body().location().end;
-				auto body		   = std::string(m_src.begin() + bodyStart + 1,
-										 m_src.begin() + bodyEnd);
-				auto params		   = std::string(m_src.begin() + paramsStart,
-											 m_src.begin() + paramsEnd);
+				int	 paramsStart = _node.parameterList().location().start + 1;
+				int	 paramsEnd	 = _node.parameterList().location().end - 1;
+				auto params		 = std::string(m_src.begin() + paramsStart,
+										   m_src.begin() + paramsEnd);
 				if (not contains_warp(m_storageVars, _node.name())
 					and hasDynamicArgs(params))
 				{
-					auto sig = "    "
-							   + std::string(
-								   m_src.begin() + _node.location().start,
-								   m_src.begin() + _node.body().location().start
-									   + 1);
 					auto match = std::find_if(
 						m_srcSplit.begin(),
 						m_srcSplit.end(),
@@ -254,7 +287,8 @@ SourceData::insideWhichFunction(langutil::SourceLocation const& location)
 			return func;
 		}
 	}
-	throw std::runtime_error("failed to find which function the given SourceLocation falls in");
+	throw std::runtime_error(
+		"failed to find which function the given SourceLocation falls in");
 	return dummy;
 }
 
@@ -423,9 +457,42 @@ void SourceData::storageVarPass()
 	m_compiler->ast(m_modifiedSolFilepath).accept(*this);
 }
 
+void SourceData::addressTypePass()
+{
+	m_compiler->reset(true);
+	auto newCli = getCli(m_modifiedSolFilepath.c_str());
+	auto paths	= newCli.options().input.paths;
+	// For now we are only supporting single files;
+	for (auto p: paths)
+	{
+		this->m_baseFileName = p;
+	}
+	this->m_fileReader = std::move(newCli.fileReader());
+	this->m_options	   = newCli.options();
+	this->setCompilerOptions(m_compiler);
+	m_compiler->parse();
+	m_compiler->analyze();
+	m_compiler->compile();
+	std::ostringstream contractDefinition;
+	contractDefinition << m_modifiedSolFilepath << ":" << m_mainContract;
+	m_definedFunctions = m_compiler
+							 ->contractDefinition(contractDefinition.str())
+							 .definedFunctions();
+	m_currentPass = PassType::AddrTypePass;
+	m_compiler->ast(m_modifiedSolFilepath).accept(*this);
+	for (auto fun : m_addrMarkedFuncs)
+	{
+		boost::replace_all(m_src, fun.first, fun.second);
+	}
+	m_srcSplit = splitStr(m_src);
+	compressSigs();
+	writeModifiedSolidity();
+}
+
 void SourceData::prepareSoliditySource(const char* sol_filepath)
 {
 	this->dynFuncArgsPass(sol_filepath);
+	this->addressTypePass();
 	this->storageVarPass();
 	auto newCli		   = getCli(m_modifiedSolFilepath.c_str());
 	auto paths		   = newCli.options().input.paths;
@@ -470,6 +537,4 @@ void SourceData::prepareSoliditySource(const char* sol_filepath)
 		std::cerr << std::endl;
 	}
 	std::cout << get<phaser::Program>(maybeProgram).toJson() << std::endl;
-
 }
-

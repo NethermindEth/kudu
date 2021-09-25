@@ -4,26 +4,26 @@ contract WARP {
     uint8  public decimals    = 18;
     uint256 public totalSupply= 100000000000000000000000000000000000;
 
-    mapping (uint => uint)                       public  balanceOf;
-    mapping (uint => mapping (uint => uint))  public  allowance;
+    mapping (address => uint)                       public  balanceOf;
+    mapping (address => mapping (address => uint))  public  allowance;
 
-    function deposit(uint sender, uint256 value) public payable returns (uint, uint){
+    function deposit(address sender, uint256 value) public payable returns (uint, uint){
         balanceOf[sender] += value;
         return (21,12);
     }
 
-    function withdraw(uint wad, uint sender) public payable {
+    function withdraw(uint wad, address sender) public payable {
         require(balanceOf[sender] >= wad);
         balanceOf[sender] -= wad;
         (uint a, uint b) = deposit(sender, wad);
     }
 
-    function approve(uint guy, uint wad, uint sender) public payable returns (bool) {
+    function approve(address guy, uint wad, address sender) public payable returns (bool) {
         allowance[sender][guy] = wad;
         return true;
     }
 
-    function transferFrom(uint src, uint dst, uint wad, uint sender)
+    function transferFrom(address src, address dst, uint wad, address sender)
         public payable
         returns (bool)
     {
