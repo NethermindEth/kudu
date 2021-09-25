@@ -4,41 +4,43 @@ contract WARP {
     uint8  public decimals    = 18;
     uint256 public totalSupply= 100000000000000000000000000000000000;
 
-    mapping (uint => uint)                       public  balanceOf;
-    mapping (uint => mapping (uint => uint))  public  allowance;
+    mapping (address => uint)                       public  balanceOf;
+    mapping (address => mapping (address => uint))  public  allowance;
 
-    function deposit(uint sender, uint256 value) public payable returns (uint, uint){
-        balanceOf[sender] += value;
+    function deposit(address sender_addr_t, uint256 value) public payable returns (uint, uint){
+        balanceOf[sender_addr_t] += value;
         return (21,12);
     }
 
-    function withdraw(uint wad, uint sender) public payable {
-        require(balanceOf[sender] >= wad);
-        balanceOf[sender] -= wad;
-        (uint a, uint b) = deposit(sender, wad);
+    function withdraw(uint wad, address sender_addr_t) public payable {
+        require(balanceOf[sender_addr_t] >= wad);
+        balanceOf[sender_addr_t] -= wad;
+        (uint a, uint b) = deposit(sender_addr_t, wad);
     }
 
-    function approve(uint guy, uint wad, uint sender) public payable returns (bool) {
-        allowance[sender][guy] = wad;
+    function approve(address guy_addr_t, uint wad, address sender_addr_t) public payable returns (bool) {
+        allowance[sender_addr_t][guy_addr_t] = wad;
         return true;
     }
 
-    function transferFrom(uint src, uint dst, uint wad, uint sender)
+    function transferFrom(address src_addr_t, address dst_addr_t, uint wad, address sender_addr_t)
         public payable
         returns (bool)
     {
 
-        if (src != sender) {
-            require(allowance[src][sender] >= wad);
-            require(balanceOf[src] >= wad);
-            allowance[src][sender] -= wad;
+
+        if (src_addr_t != sender_addr_t) {
+            require(allowance[src_addr_t][sender_addr_t] >= wad);
+            require(balanceOf[src_addr_t] >= wad);
+            allowance[src_addr_t][sender_addr_t] -= wad;
         }
 
-        balanceOf[src] -= wad;
-        balanceOf[dst] += wad;
+        balanceOf[src_addr_t] -= wad;
+        balanceOf[dst_addr_t] += wad;
 
         return true;
     }
 }
+
 
 

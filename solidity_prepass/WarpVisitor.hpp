@@ -51,6 +51,7 @@ public:
 	enum class PassType
 	{
 		StorageVarPass,
+		AddrTypePass,
 		FunctionDefinitionPass,
 		FunctionCallPass,
 	};
@@ -69,22 +70,23 @@ public:
 	bool visit(FunctionCall const& _node) override;
 	bool visit(Identifier const& _node) override;
 	bool visitNode(ASTNode const& node) override;
+	void markAddressTypesInFunArgs(FunctionDefinition const& _node,
+								   std::string				 funcFull);
 	void prepareSoliditySource(const char* sol_filepath);
 	void setCompilerOptions(std::shared_ptr<CompilerStack> compiler);
 	void writeModifiedSolidity();
 	void compressSigs();
 	void dynFuncArgsPass(const char* solFilepath);
 	void storageVarPass();
+	void addressTypePass();
 
-	std::vector<std::string>			m_storageVars_str;
-	std::vector<std::string>			m_srcSplit;
-	std::vector<std::string>			m_srcSplitDynArgsFuncPass;
-	std::vector<std::string>			m_srcSplitDynArgsFuncCallPass;
-	std::vector<std::string>			m_srcSplitStorageVarsPass;
-	std::vector<std::string>			m_srcSplitOriginal;
-	std::vector<std::string>			m_functionNames;
-	std::map<std::string, ContractData> m_contracts;
-	boost::filesystem::path				m_baseFileName;
+	std::vector<std::string>						 m_storageVars_str;
+	std::vector<std::pair<std::string, std::string>> m_addrMarkedFuncs;
+	std::vector<std::string>						 m_srcSplit;
+	std::vector<std::string>						 m_srcSplitOriginal;
+	std::vector<std::string>						 m_functionNames;
+	std::map<std::string, ContractData>				 m_contracts;
+	boost::filesystem::path							 m_baseFileName;
 
 	std::string m_mainContract;
 	std::string m_contractDef;
