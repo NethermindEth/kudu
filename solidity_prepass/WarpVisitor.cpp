@@ -170,6 +170,9 @@ bool SourceData::visit(FunctionDefinition const& _node)
 	}
 	case PassType::FunctionDefinitionPass:
 	{
+		if (_node.isPartOfExternalInterface())
+			return visitNode(_node);
+
 		int	 bodyStart = _node.body().location().start;
 		int	 bodyEnd   = _node.body().location().end;
 		auto body	   = std::string(m_src.begin() + bodyStart + 1,
@@ -521,6 +524,7 @@ void SourceData::prepareSoliditySource(const char* sol_filepath)
 						   m_modifiedSolFilepath.c_str(),
 						   m_storageVars_str);
 	auto yul	 = prepass.cleanYul(yulIROptimized, m_mainContract);
+	std::cout << yul << std::endl;
 	// =============== Generate Yul JSON AST ===============
 	langutil::CharStream ir = langutil::CharStream(yul, m_modifiedSolFilepath);
 	std::variant<phaser::Program, langutil::ErrorList>
