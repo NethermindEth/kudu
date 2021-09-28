@@ -351,6 +351,50 @@ std::string Prepass::exec(std::string cmdStr)
 	return result;
 }
 
+bool Prepass::isExtCodeSizeCheck(std::array<std::string, 6> lines)
+{
+	return (lines[0].find("extcodesize") != std::string::npos
+			and lines[1].find("iszero") != std::string::npos
+			and lines[2].find("if") != std::string::npos
+			and lines[3].find("{") != std::string::npos
+			and lines[4].find("revert") != std::string::npos
+			and lines[5].find("}") != std::string::npos);
+}
+
+std::vector<std::string>
+Prepass::removeExtCodeSizeCheck(std::vector<std::string> yul)
+{
+	size_t						 increment = 1;
+	std::vector<std::string> result;
+	for (size_t i = 0; i < yul.size(); i += increment)
+	{
+		if (i + 6 < yul.size())
+		{
+			std::array<std::string, 6> seq = {yul[i],
+											  yul[i + 1],
+											  yul[i + 2],
+											  yul[i + 3],
+											  yul[i + 4],
+											  yul[i + 5]};
+			if (isExtCodeSizeCheck(seq))
+			{
+				increment = 6;
+			}
+			else
+			{
+				result.emplace_back(yul[i]);
+				increment = 1;
+			}
+		}
+		else
+		{
+			increment = 1;
+			result.emplace_back(yul[i]);
+		}
+	}
+	return result;
+}
+
 std::string Prepass::addEntryFunc(std::vector<std::string> entrySeq,
 								  std::vector<std::string> cleanCode)
 {
@@ -374,8 +418,9 @@ std::string Prepass::addEntryFunc(std::vector<std::string> entrySeq,
 
 std::string Prepass::cleanYul(std::string code, std::string& main_contract)
 {
-	auto					 yul		= getMainObject(code, main_contract);
-	auto					 runtimeYul = getRuntimeYul(yul);
+	auto yul		= getMainObject(code, main_contract);
+	auto runtimeYul = getRuntimeYul(yul);
+	runtimeYul		= removeExtCodeSizeCheck(runtimeYul);
 	std::vector<std::string> clean;
 	std::vector<std::string> entry;
 	FinalizedYul			 finalYul = removeDeploymentCode(runtimeYul);
