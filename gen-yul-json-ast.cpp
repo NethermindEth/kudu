@@ -30,6 +30,54 @@ std::string slurpFile(std::string_view path)
 	return result;
 }
 
+solidity::langutil::CharStream generateIR(char const* sol_filepath)
+{
+	std::string yulOptimiserSteps = solidity::frontend::OptimiserSettings::
+		DefaultYulOptimiserSteps;
+	erase(yulOptimiserSteps, 'i'); // remove FullInliner
+	yulOptimiserSteps += " x";	   // that flattens function calls: only one
+								   // function call per statement is allowed
+	constexpr int solc_argc			   = 6;
+	char const*	  solc_argv[solc_argc] = {
+		  "irToJson",
+		  "--optimize",
+		  "--ir-optimized",
+		  "--yul-optimizations",
+		  yulOptimiserSteps.c_str(),
+		  sol_filepath,
+	  };
+
+	std::istringstream sin; // never used, but the CLI requires it
+	std::ostringstream sout;
+	solidity::frontend::CommandLineInterface cli{sin, sout, std::cerr};
+	if (not cli.parseArguments(solc_argc, solc_argv))
+		BOOST_THROW_EXCEPTION(
+			std::runtime_error{"solc CLI failed to parse arguments"});
+	if (not cli.readInputFiles())
+		BOOST_THROW_EXCEPTION(
+			std::runtime_error{"solc failed to read input files"});
+	if (not cli.processInput())
+		BOOST_THROW_EXCEPTION(
+			std::runtime_error{"solc failed to process input"});
+	if (not cli.actOnInput())
+		BOOST_THROW_EXCEPTION(
+			std::runtime_error{"solc failed to act on input"});
+
+	std::string_view		   ir		 = sout.str();
+	constexpr std::string_view IR_HEADER = "Optimized IR:";
+	if (ir.substr(0, IR_HEADER.size()) != IR_HEADER)
+	{
+		std::ostringstream es;
+		es << "Expected '" << IR_HEADER
+		   << "' header in solc IR output but not found" << std::endl;
+		BOOST_THROW_EXCEPTION(std::runtime_error{es.str()});
+	}
+	ir.remove_prefix(IR_HEADER.size());
+
+	return solidity::langutil::CharStream{std::string{ir}, "ir_stream"};
+}
+
+
 int main(int argc, char* argv[])
 {
 	if (argc != 3)

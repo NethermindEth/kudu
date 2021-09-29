@@ -159,10 +159,6 @@ void SourceData::markAddressTypesInFunArgs(FunctionDefinition const& _node,
 
 bool SourceData::visit(FunctionDefinition const& _node)
 {
-	if (not _node.isImplemented())
-	{
-		return visitNode(_node);
-	}
 	switch (m_currentPass)
 	{
 	case PassType::AddrTypePass:
