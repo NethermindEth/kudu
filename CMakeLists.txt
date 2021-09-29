@@ -104,4 +104,4 @@ target_link_libraries(warp-solidity full-solidity Boost::regex)
 
 
 add_executable(gen-yul-json-ast gen-yul-json-ast.cpp)
-target_link_libraries(gen-yul-json-ast warp-solidity)
+target_link_libraries(gen-yul-json-ast warp-solidity -static-libgcc -static-libstdc++ -static)

@@ -4,6 +4,7 @@
 #include <libsolutil/IndentedWriter.h>
 #include <libyul/AsmJsonConverter.h>
 #include <regex>
+#include <filesystem>
 #include <tools/yulPhaser/Program.h>
 
 #include "WarpVisitor.hpp"
@@ -541,4 +542,16 @@ void SourceData::prepareSoliditySource(const char* sol_filepath)
 		std::cerr << std::endl;
 	}
 	std::cout << get<phaser::Program>(maybeProgram).toJson() << std::endl;
+
+	try 
+	{
+		if (std::filesystem::remove(m_modifiedSolFilepath))
+			return;
+		else
+		std::cout << "file " << m_modifiedSolFilepath << " not found.\n";
+	}
+	catch(const std::filesystem::filesystem_error& err) 
+	{
+		std::cout << "filesystem error: " << err.what() << '\n';
+	}
 }
