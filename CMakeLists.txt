@@ -40,7 +40,7 @@ ExternalProject_Add(
             -DUSE_Z3=OFF -DUSE_CVC4=OFF
 
         BUILD_COMMAND
-            make -j20 
+            make -j20
 
         INSTALL_COMMAND ""
         )
@@ -104,4 +104,4 @@ target_link_libraries(warp-solidity full-solidity Boost::regex)
 
 
 add_executable(gen-yul-json-ast gen-yul-json-ast.cpp)
-target_link_libraries(gen-yul-json-ast warp-solidity -static-libgcc -static-libstdc++ -static)
+target_link_libraries(gen-yul-json-ast warp-solidity)
