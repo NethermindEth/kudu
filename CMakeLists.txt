@@ -40,7 +40,7 @@ ExternalProject_Add(
             -DUSE_Z3=OFF -DUSE_CVC4=OFF
 
         BUILD_COMMAND
-            make -j20
+            make -j20 
 
         INSTALL_COMMAND ""
         )

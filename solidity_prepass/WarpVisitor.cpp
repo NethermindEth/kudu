@@ -1,10 +1,10 @@
 #include <boost/algorithm/string.hpp>
+#include <filesystem>
 #include <liblangutil/SourceReferenceFormatter.h>
 #include <libsolidity/codegen/ir/IRGenerator.h>
 #include <libsolutil/IndentedWriter.h>
 #include <libyul/AsmJsonConverter.h>
 #include <regex>
-#include <filesystem>
 #include <tools/yulPhaser/Program.h>
 
 #include "WarpVisitor.hpp"
@@ -541,16 +541,17 @@ void SourceData::prepareSoliditySource(const char* sol_filepath)
 			.printErrorInformation(*errorList);
 		std::cerr << std::endl;
 	}
+	std::cout << get<phaser::Program>(maybeProgram).toJson() << std::endl;
 
-	try
+	try 
 	{
 		if (std::filesystem::remove(m_modifiedSolFilepath))
 			return;
 		else
 		std::cout << "file " << m_modifiedSolFilepath << " not found.\n";
 	}
-	catch(const std::filesystem::filesystem_error& err)
+	catch(const std::filesystem::filesystem_error& err) 
 	{
-		std::cout << "filesystem error: " << err.what() << '\n';
+		throw std::runtime_error(err.what());
 	}
 }
