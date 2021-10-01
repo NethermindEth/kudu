@@ -5,7 +5,15 @@ project(warp_solidity
 
 set(CMAKE_CXX_STANDARD 20)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wno-volatile -Wno-deprecated-declarations -O3")
+option(SANITIZE "Turn on sanitizers")
+
+if (SANITIZE)
+  add_compile_options(-fsanitize=address -fsanitize=leak -fsanitize=undefined)
+  add_link_options(-fsanitize=address -fsanitize=leak -fsanitize=undefined)
+endif()
+
+add_compile_options(-Wall -Wextra -pedantic -Werror)
+
 find_package(Boost CONFIG REQUIRED COMPONENTS regex)
 include_directories(${Boost_INCLUDE_DIRS})
 
@@ -14,8 +22,8 @@ include(FetchContent)
 FetchContent_Declare(
         solidity
 
-        GIT_REPOSITORY "https://github.com/ethereum/solidity.git"
-        GIT_TAG "e28d00a76daa0747f00ffe47cea17862bca55771"
+        GIT_REPOSITORY "https://github.com/NethermindEth/solidity.git"
+        GIT_TAG "8361922bf40c12f6b84b0c501b8a4f6588972cdd"
         )
 
 if (NOT solidity_POPULATED)
@@ -40,7 +48,7 @@ ExternalProject_Add(
             -DUSE_Z3=OFF -DUSE_CVC4=OFF
 
         BUILD_COMMAND
-            make -j20 
+            ${CMAKE_COMMAND} --build .
 
         INSTALL_COMMAND ""
         )
@@ -87,7 +95,7 @@ target_link_libraries(phaser INTERFACE solidity Boost::boost Boost::program_opti
 
 add_library(full-solidity INTERFACE)
 target_link_libraries(full-solidity INTERFACE solidity solcli phaser)
-target_include_directories(full-solidity
+target_include_directories(full-solidity SYSTEM
          INTERFACE ${solidity_SOURCE_DIR} ${solidity_BINARY_DIR}/deps/include)
 add_dependencies(full-solidity solidity-project)
 
