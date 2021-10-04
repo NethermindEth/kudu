@@ -117,5 +117,4 @@ private:
 	std::vector<std::string> m_hashNames;
 	PublicFunctions			 m_publicFunctions;
 	MarkedFunctions			 m_dynArgFunctions;
-	int						 m_publicFunctionCount;
 };
