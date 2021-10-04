@@ -48,17 +48,17 @@ jobs:
           libreadline-dev libncurses5-dev libcurl4-openssl-dev
           libjsonrpccpp-dev libmicrohttpd-dev libjsoncpp-dev
           libedit-dev libz-dev gcc-11 g++-11 ccache
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.config.os == 'ubuntu-latest'
       - name: Build Release (Linux)
         run: CXX=g++-11 CC=gcc-11 sh build.sh
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.config.os == 'ubuntu-latest'
 
       - name: Install Dependencies (macOS)
         run: brew install cmake boost icu4c
-        if: matrix.os == 'macos-latest'
+        if: matrix.config.os == 'macos-latest'
       - name: Build Release (macOS)
         run: sh build.sh
-        if: matrix.os == 'macos-latest'
+        if: matrix.config.os == 'macos-latest'
 
       - name: Upload release assets
         uses: actions/upload-release-asset@v1
