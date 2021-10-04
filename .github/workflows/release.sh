@@ -1,0 +1,67 @@
+on:
+  push:
+    tags:
+      - 'v[0-9]+.*'
+      
+jobs:
+  create_release:
+    name: Create release
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    steps:
+      - name: Create release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+          
+  release_assets:
+    name: Release assets
+    needs: create_release
+    runs-on: ${{ matrix.config.os }}
+    strategy:
+      matrix:
+        config:
+          - os: ubuntu-latest
+          - os: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v1
+
+      - name: Install Dependencies (Linux)
+        run: >
+          sudo add-apt-repository
+          'deb http://mirrors.kernel.org/ubuntu hirsute main universe'
+
+          sudo apt-get -y install build-essential git cmake
+          libboost-all-dev libgmp-dev libleveldb-dev libminiupnpc-dev
+          libreadline-dev libncurses5-dev libcurl4-openssl-dev
+          libjsonrpccpp-dev libmicrohttpd-dev libjsoncpp-dev
+          libedit-dev libz-dev gcc-11 g++-11 ccache
+        if: matrix.os == 'ubuntu-latest'
+      - name: Build Release (Linux)
+        run: CXX=g++-11 CC=gcc-11 sh build.sh
+        if: matrix.os == 'ubuntu-latest'
+
+      - name: Install Dependencies (macOS)
+        run: brew install cmake boost icu4c
+        if: matrix.os == 'macos-latest'
+      - name: Build Release (macOS)
+        run: sh build.sh
+        if: matrix.os == 'macos-latest'
+
+      - name: Upload release assets
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          asset_name: gen-yul-json-ast-${{ matrix.config.os }}
+          asset_path: build/gen-yul-json-ast
+          asset_content_type: application/octet-stream
