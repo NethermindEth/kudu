@@ -7,7 +7,7 @@ on:
 
 
 jobs:
-  build:
+  build-ubuntu:
     runs-on: ubuntu-latest
 
     steps:
@@ -30,5 +30,24 @@ jobs:
       - name: Upload gen-yul-json-ast artifact
         uses: actions/upload-artifact@v2
         with:
-          name: gen-yul-json-ast
+          name: gen-yul-json-ast-ubuntu
           path: build/gen-yul-json-ast
+
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install dependencies
+        run: brew install cmake boost icu4c
+
+      - name: Build gen-yul-json-ast
+        run: sh build.sh
+
+      - name: Upload gen-yul-json-ast artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: gen-yul-json-ast-macos
+          path: build/gen-yul-json-ast
+  
