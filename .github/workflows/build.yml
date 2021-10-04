@@ -24,14 +24,19 @@ jobs:
           libjsonrpccpp-dev libmicrohttpd-dev libjsoncpp-dev
           libedit-dev libz-dev gcc-11 g++-11 ccache
 
+      - name: Gen Cache Id
+        run: |
+          echo "::set-output name=timestamp::$(date '+%s')"
+        id: cache-id
+        
       - name: Cache build (ubuntu)
         uses: actions/cache@v2
-        env:
-          cache-name: ubtuntu-build
         with:
           # npm cache files are stored in `~/.npm` on Linux/macOS
           path: build
-          key: ubuntu-cache
+          key: ubtuntu-build-${{ steps.cache-id.outputs.timestamp }}
+          restore-keys: |
+            ubuntu-build-
           
       - name: Build gen-yul-json-ast
         run: CXX=g++-11 CC=gcc-11 sh build.sh
@@ -48,14 +53,19 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Cache build (macos)
+      - name: Gen Cache Id
+        run: |
+          echo "::set-output name=timestamp::$(date '+%s')"
+        id: cache-id
+        
+      - name: Cache build (ubuntu)
         uses: actions/cache@v2
-        env:
-          cache-name: macos-build
         with:
           # npm cache files are stored in `~/.npm` on Linux/macOS
           path: build
-          key: macos-cache
+          key: macos-build-${{ steps.cache-id.outputs.timestamp }}
+          restore-keys: |
+            macos-build-
 
       - name: Install dependencies
         run: brew install cmake boost icu4c
