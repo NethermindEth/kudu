@@ -118,9 +118,7 @@ FinalizedYul Prepass::removeDeploymentCode(std::vector<std::string> code)
 	onlyDefinitions.insert(onlyDefinitions.begin(),
 						   code.begin(),
 						   code.begin() + 3);
-	return FinalizedYul{.onlyDefinitions = onlyDefinitions,
-						.entrySequence	 = entrySequence,
-						.entrySeqEnd	 = entrySeqEnd};
+	return FinalizedYul{onlyDefinitions, entrySequence, entrySeqEnd};
 }
 
 struct EntrySeqData
@@ -243,15 +241,16 @@ std::string Prepass::removeNonDynamicDispatch(std::vector<std::string> entrySeq)
 		}
 	}
 	std::vector<int> idxs = {4, 3, 2};
-	for (auto idx : idxs)
-	{ 
-		if (entrySeq[entrySeq.size() - idx].find("revert_") != std::string::npos)
+	for (auto idx: idxs)
+	{
+		if (entrySeq[entrySeq.size() - idx].find("revert_")
+			!= std::string::npos)
 		{
 			continue;
 		}
 		else
 		{
-			entryStr += entrySeq[entrySeq.size() - idx] + "\n"; 
+			entryStr += entrySeq[entrySeq.size() - idx] + "\n";
 		}
 	}
 	entryStr = prefix + entryStr;
@@ -360,7 +359,7 @@ std::string Prepass::addEntryFunc(std::vector<std::string> entrySeq,
 	cleanCode.push_back("\n");
 	cleanCode.push_back("\n");
 	std::string yulStr;
-	auto entryStr = removeNonDynamicDispatch(entrySeq);
+	auto		entryStr = removeNonDynamicDispatch(entrySeq);
 	for (size_t i = 0; i < cleanCode.size() - 2; i++)
 	{
 		yulStr += cleanCode[i] + "\n";
