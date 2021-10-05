@@ -1,5 +1,6 @@
 #include <boost/algorithm/string.hpp>
 #include <filesystem>
+#include <liblangutil/Exceptions.h>
 #include <liblangutil/SourceReferenceFormatter.h>
 #include <libsolidity/codegen/ir/IRGenerator.h>
 #include <libsolutil/IndentedWriter.h>
@@ -10,15 +11,87 @@
 #include "WarpVisitor.hpp"
 #include "yul_prepass/Prepass.hpp"
 
+
+std::string joinSrcSplit(std::vector<std::string> srcSplit)
+{
+	std::string newSrc;
+	std::for_each(srcSplit.begin(),
+				  srcSplit.end(),
+				  [&newSrc](std::string line) { newSrc += line + "\n"; });
+	return newSrc;
+}
+
+void replaceIdentifierName(std::string& srcString,
+						   std::string	identifier,
+						   std::string	newIdentifier)
+{
+	std::ostringstream regexStr;
+	regexStr << "(\\b)" << identifier << "\\b";
+	std::regex	r(regexStr.str());
+	std::string result = std::regex_replace(srcString, r, newIdentifier);
+	srcString		   = result;
+}
+
 SourceData::SourceData(std::string main_contract,
 					   std::string src,
 					   std::string filepath)
 {
-	m_src				  = src;
+	m_src	   = src;
+	m_srcSplit = splitStr(m_src);
+	this->removeComments();
 	m_filepath			  = filepath;
 	m_mainContract		  = main_contract;
 	m_modifiedSolFilepath = std::string(filepath.begin(), filepath.end() - 4)
 							+ "_marked.sol";
+	this->writeModifiedSolidity();
+	this->prepareSoliditySource(m_modifiedSolFilepath.c_str());
+}
+
+int getEndOfMultiLineComment(std::vector<std::string> lines, int start)
+{
+	for (size_t i = start; i < lines.size(); i++)
+	{
+		boost::trim(lines[i]);
+		if (boost::starts_with(lines[i], "*/"))
+			return i;
+	}
+	throw std::runtime_error("Failed to find end of multi line comment.");
+	return -1;
+}
+
+void SourceData::removeComments()
+{
+	std::vector<std::string> newSplit;
+	int						 jump = 1;
+	for (size_t i = 0; i < m_srcSplit.size(); i += jump)
+	{
+		if (i > m_srcSplit.size())
+			break;
+		auto lineCopy = m_srcSplit[i];
+		boost::trim(lineCopy);
+		if (boost::starts_with(lineCopy, "//"))
+		{
+			jump = 1;
+		}
+		else if (boost::starts_with(lineCopy, "/*"))
+		{
+			auto end = getEndOfMultiLineComment(m_srcSplit, i);
+			jump	 = end + 1 - (i);
+			if (i + jump > m_srcSplit.size())
+				break;
+		}
+		else
+		{
+			jump = 1;
+			newSplit.emplace_back(m_srcSplit[i]);
+		}
+	}
+	std::string newSrc;
+	std::for_each(newSplit.begin(),
+				  newSplit.end(),
+				  [&newSrc](std::string line) { newSrc += line + "\n"; });
+	this->m_srcSplit = newSplit;
+	this->m_src		 = newSrc;
 }
 
 bool SourceData::hasDynamicArgs(std::string params)
@@ -31,50 +104,6 @@ bool SourceData::visitNode(ASTNode const& node)
 {
 	return ASTConstVisitor::visitNode(node);
 }
-
-int SourceData::getSigEnd(int start)
-{
-	for (size_t i = start; i < m_srcSplit.size(); i++)
-	{
-		if (m_srcSplit[i].find("{") != std::string::npos)
-			return i;
-	}
-	throw std::runtime_error("Failed to find end of signature");
-	return -1;
-}
-
-void SourceData::compressSigs()
-{
-	std::vector<std::string> newSplit;
-	auto					 jump = 1;
-	for (size_t i = 0; i < m_srcSplit.size(); i += jump)
-	{
-		if (m_srcSplit[i].find("function") != std::string::npos)
-		{
-			if (m_srcSplit[i].find("{") != std::string::npos)
-			{
-				newSplit.emplace_back(m_srcSplit[i]);
-			}
-			else
-			{
-				auto end = getSigEnd(i);
-				jump	 = end + 1 - (i);
-				std::string sig;
-				std::for_each(m_srcSplit.begin() + i,
-							  m_srcSplit.begin() + end + 1,
-							  [&sig](std::string v) { sig += v + "\n"; });
-				newSplit.emplace_back(sig);
-			}
-		}
-		else
-		{
-			newSplit.emplace_back(m_srcSplit[i]);
-			jump = 1;
-		}
-	}
-	m_srcSplit = newSplit;
-}
-
 
 bool SourceData::isPublic(Visibility _visibility)
 {
@@ -132,85 +161,73 @@ CommandLineInterface SourceData::getCli(char const* sol_filepath)
 	return cli;
 }
 
-void SourceData::markAddressTypesInFunArgs(FunctionDefinition const& _node,
-									  std::string				funcFull)
-{
-	auto funcFullReplaced = funcFull;
-	for (auto param: _node.parameters())
-	{
-		if (param != nullptr)
-		{
-			switch (param->type()->category())
-			{
-			case Type::Category::Address:
-			{
-				auto varName	= param->name();
-				auto markedName = varName + "_addr_t";
-				boost::replace_all(funcFullReplaced, varName, markedName);
-				break;
-			}
-			default:
-				break;
-			}
-		}
-	}
-	auto pair = std::make_pair(funcFull, funcFullReplaced);
-	this->m_addrMarkedFuncs.emplace_back(pair);
-}
+
+// void SourceData::endVisitNode(ASTNode const& node)
+// {
+// 	return ASTConstVisitor::endVisitNode(node);
+// }
+
+// void SourceData::endVisit(FunctionDefinition const& _node)
+// {
+	// if (m_currentPass == PassType::AddrTypePass)
+	// {
+	// 	auto pair = std::make_pair(m_currentFunction,
+	// 							   m_currentFunctionModified);
+	// 	this->m_addrMarkedFuncs.emplace_back(pair);
+	// 	this->m_currentFunctionParams.clear();
+	// }
+	// return endVisitNode(_node);
+// }
 
 bool SourceData::visit(FunctionDefinition const& _node)
 {
-	if (not _node.isImplemented())
-	{
-		return visitNode(_node);
-	}
 	switch (m_currentPass)
 	{
-	case PassType::AddrTypePass:
-	{
-		auto funcFull = std::string(m_src.begin() + _node.location().start,
-									m_src.begin() + _node.location().end + 1);
-		markAddressTypesInFunArgs(_node, funcFull);
-		return visitNode(_node);
-	}
+	// case PassType::AddrTypePass:
+	// {
+	// 	auto funcFull = std::string(
+	// 		m_srcOriginal.begin() + _node.location().start,
+	// 		m_srcOriginal.begin() + _node.location().end + 1);
+	// 	this->m_currentFunction			= funcFull;
+	// 	this->m_currentFunctionModified = funcFull;
+	// 	for (auto param: _node.parameters())
+	// 	{
+	// 		m_currentFunctionParams.emplace_back(param->name());
+	// 	}
+	// 	return visitNode(_node);
+	// }
 	case PassType::FunctionDefinitionPass:
 	{
-		if (_node.isPartOfExternalInterface())
-			return visitNode(_node);
-
-		int	 bodyStart = _node.body().location().start;
-		int	 bodyEnd   = _node.body().location().end;
-		auto body	   = std::string(m_src.begin() + bodyStart + 1,
-								 m_src.begin() + bodyEnd);
-		auto sig	   = "    "
-				   + std::string(
-					   m_src.begin() + _node.location().start,
-					   m_src.begin() + _node.body().location().start + 1);
-		auto bodySplit = splitStr(body);
-		m_functionNames.push_back(_node.name());
-		if (_node.isConstructor())
-			return visitNode(_node);
+		std::string sig;
+		if (not _node.isImplemented())
+		{
+			sig = std::string(m_srcOriginal.begin() + _node.location().start,
+							  m_srcOriginal.begin() + _node.location().end);
+		}
+		else
+		{
+			sig = "    "
+				  + std::string(m_srcOriginal.begin() + _node.location().start,
+								m_srcOriginal.begin()
+									+ _node.body().location().start + 1);
+		}
 		try
 		{
-			if (isPublic(_node.visibility()))
+			if (_node.isPartOfExternalInterface())
 			{
 				int	 paramsStart = _node.parameterList().location().start + 1;
 				int	 paramsEnd	 = _node.parameterList().location().end - 1;
-				auto params		 = std::string(m_src.begin() + paramsStart,
-										   m_src.begin() + paramsEnd);
-				if (not contains_warp(m_storageVars, _node.name())
+				auto params = std::string(m_srcOriginal.begin() + paramsStart,
+										  m_srcOriginal.begin() + paramsEnd);
+				if (not contains_warp(m_storageVars_str, _node.name())
 					and hasDynamicArgs(params))
 				{
-					auto match = std::find_if(
-						m_srcSplit.begin(),
-						m_srcSplit.end(),
-						[&sig](std::string v)
-						{ return v.find(sig) != std::string::npos; });
-					int	 index		= std::distance(m_srcSplit.begin(), match);
 					auto markedName = _node.name() + "_dynArgs";
 					auto markedSig	= "    function " + markedName
 									 + std::string(sig.begin() + sig.find('('),
-												   sig.end());
+												   sig.end())
+									 + "\n";
+					boost::replace_all(m_src, sig, markedSig);
 					m_dynArgFunctions.names.emplace_back(_node.name());
 					std::vector<Type const*> params;
 					for (auto param: _node.parameters())
@@ -220,7 +237,7 @@ bool SourceData::visit(FunctionDefinition const& _node)
 					m_dynArgFunctions.parameters.emplace_back(params);
 					m_dynArgFunctions.selectors.emplace_back(
 						_node.externalIdentifierHex());
-					m_srcSplit[index] = markedSig;
+					m_srcSplit = splitStr(m_src);
 				}
 			}
 			return visitNode(_node);
@@ -229,6 +246,7 @@ bool SourceData::visit(FunctionDefinition const& _node)
 		{
 			return visitNode(_node);
 		}
+		return visitNode(_node);
 	}
 	default:
 		return visitNode(_node);
@@ -237,12 +255,11 @@ bool SourceData::visit(FunctionDefinition const& _node)
 
 bool SourceData::visit(FunctionCall const& _node)
 {
-	switch (m_currentPass)
-	{
-	case PassType::FunctionCallPass:
+	if (m_currentPass == PassType::FunctionCallPass)
 	{
 		auto funcDef = resolveFunctionCall(
-			m_compiler->contractDefinition(m_filepath + ":" + m_mainContract),
+			m_compiler->contractDefinition(m_modifiedSolFilepath + ":"
+										   + m_mainContract),
 			_node);
 		if (funcDef != nullptr)
 		{
@@ -255,33 +272,21 @@ bool SourceData::visit(FunctionCall const& _node)
 			if (found == 1)
 			{
 				auto line = std::string(
-					m_src.begin() + _node.location().start,
-					m_src.begin() + _node.location().end + 1);
-				auto sig = std::string(m_src.begin() + _node.location().start,
-									   m_src.begin() + _node.location().end);
-				auto funcName = std::string(sig.begin(),
-											sig.begin() + sig.find('('));
-				int	 index	  = 0;
-				int	 count	  = 0;
-				std::for_each(m_srcSplit.begin(),
-							  m_srcSplit.end(),
-							  [&index, &line, &count](std::string src)
-							  {
-								  boost::trim(src);
-								  if (line == src)
-									  index = count;
-								  count++;
-							  });
-				boost::replace_first(m_srcSplit[index],
-									 funcName,
-									 funcName + "_dynArgs");
+					m_srcOriginal.begin() + _node.location().start,
+					m_srcOriginal.begin() + _node.location().end + 1);
+
+				auto call = std::string(
+					m_srcOriginal.begin() + _node.location().start,
+					m_srcOriginal.begin() + _node.location().end);
+				auto callMarked = call;
+				auto dynName	= funcDef->name() + "_dynArgs";
+				replaceIdentifierName(callMarked, funcDef->name(), dynName);
+				boost::replace_all(m_src, call, callMarked);
+				m_srcSplit = splitStr(m_src);
 			}
 		}
-		return visitNode(_node);
 	}
-	default:
-		return visitNode(_node);
-	}
+	return visitNode(_node);
 }
 
 FunctionDefinition const*
@@ -300,47 +305,59 @@ SourceData::insideWhichFunction(langutil::SourceLocation const& location)
 	return dummy;
 }
 
-bool SourceData::visit(Identifier const& _node)
-{
-	switch (m_currentPass)
-	{
-	case PassType::StorageVarPass:
-	{
-		if (std::find(m_storageVars_str.begin(),
-					  m_storageVars_str.end(),
-					  _node.name())
-			!= m_storageVars_str.end())
-		{
-			auto parentFunction = insideWhichFunction(_node.location());
-			if (parentFunction != nullptr)
-			{
-				auto type	 = _node.annotation().type;
-				auto typeSig = type->signatureInExternalFunction(false);
-				boost::trim(typeSig);
-				switch (type->category())
-				{
-				case Type::Category::Mapping:
-				{
-					break;
-				}
-				case Type::Category::Integer:
-				case Type::Category::RationalNumber:
-					break;
-				default:
-					break;
-				}
-				Declaration const* decl = _node.annotation()
-											  .referencedDeclaration;
-				auto taggedName = _node.name() + "_"
-								  + decl->type()->identifier();
-			}
-		}
-		return visitNode(_node);
-	}
-	default:
-		return visitNode(_node);
-	}
-}
+// bool SourceData::visit(VariableDeclaration const& _node)
+// {
+	// auto type = _node.type()->category();
+	// if (m_currentPass == PassType::AddrTypePass
+	// 	&& type == Type::Category::Address)
+	// {
+	// 	if (boost::ends_with(_node.name(), "_addr_t"))
+	// 		return visitNode(_node);
+
+	// 	auto newName = _node.name() + "_addr_t";
+	// 	if (_node.isStateVariable())
+	// 	{
+	// 		auto declr = std::string(
+	// 			m_srcOriginal.begin() + _node.location().start,
+	// 			m_srcOriginal.begin() + _node.location().end);
+	// 		auto markedDeclr = declr;
+	// 		replaceIdentifierName(markedDeclr, _node.name(), newName);
+	// 		replaceIdentifierName(m_src, declr, markedDeclr);
+	// 		replaceIdentifierName(m_src, _node.name(), newName);
+	// 		for (auto base: _node.annotation().baseFunctions)
+	// 		{
+	// 			auto newName = base->name() + "_addr_t";
+	// 			auto declr	 = std::string(
+	// 				  m_srcOriginal.begin() + base->location().start,
+	// 				  m_srcOriginal.begin() + base->location().end);
+	// 			auto markedDeclr = declr;
+	// 			replaceIdentifierName(markedDeclr, base->name(), newName);
+	// 			replaceIdentifierName(m_src, declr, markedDeclr);
+	// 		}
+	// 	}
+	// }
+	// return visitNode(_node);
+// }
+
+// bool SourceData::visit(Identifier const& _node)
+// {
+// 	auto type = _node.annotation().type;
+// 	if (m_currentPass == PassType::AddrTypePass
+// 		&& type->category() == Type::Category::Address)
+// 	{
+// 		auto parentFunction		 = insideWhichFunction(_node.location());
+// 		auto parameterIdentifier = contains_warp(m_currentFunctionParams,
+// 												 _node.name());
+// 		if (parentFunction != nullptr && parameterIdentifier)
+// 		{
+// 			auto newName = _node.name() + "_addr_t";
+// 			replaceIdentifierName(m_currentFunctionModified,
+// 								  _node.name(),
+// 								  newName);
+// 		}
+// 	}
+// 	return visitNode(_node);
+// }
 
 bool SourceData::checkTypeEqaulity(std::vector<Type const*> const& t1,
 								   std::vector<Type const*>		   t2)
@@ -381,127 +398,110 @@ void SourceData::setCompilerOptions(std::shared_ptr<CompilerStack> compiler)
 								 || m_options.compiler.outputs.irOptimized);
 	compiler->enableEwasmGeneration(m_options.compiler.outputs.ewasm);
 
+	this->setYulOptimizerSettings();
+
+	this->m_compiler->setOptimiserSettings(m_compilerOptimizerSettings);
+	this->m_compiler->setSources(m_fileReader.sourceCodes());
+	this->m_compiler->setParserErrorRecovery(m_options.input.errorRecovery);
+}
+
+void SourceData::setYulOptimizerSettings()
+{
 	std::string yulOptimiserSteps = OptimiserSettings::DefaultYulOptimiserSteps;
 	std::erase(yulOptimiserSteps, 'i'); // remove FullInliner
 	yulOptimiserSteps += " x"; // that flattens function calls: only one
 
-	this->m_compilerOptimizerSettings			  = OptimiserSettings::full();
-	m_compilerOptimizerSettings.yulOptimiserSteps = yulOptimiserSteps;
-	m_compilerOptimizerSettings.expectedExecutionsPerDeployment = 1;
-
-	m_compiler->setOptimiserSettings(m_compilerOptimizerSettings);
-	m_compiler->setSources(m_fileReader.sourceCodes());
-	m_compiler->setParserErrorRecovery(m_options.input.errorRecovery);
+	this->m_compilerOptimizerSettings = OptimiserSettings::full();
+	this->m_compilerOptimizerSettings.yulOptimiserSteps = yulOptimiserSteps;
+	this->m_compilerOptimizerSettings.expectedExecutionsPerDeployment = 1;
 }
 
 void SourceData::dynFuncArgsPass(const char* solFilepath)
 {
 	auto cli   = getCli(solFilepath);
 	auto paths = cli.options().input.paths;
-	// For now we are only supporting single files;
-	for (auto p: paths)
-	{
-		this->m_baseFileName = p;
-	}
 
 	this->m_fileReader = std::move(cli.fileReader());
 	this->m_compiler   = std::make_shared<CompilerStack>(m_fileReader.reader());
 	this->m_options	   = cli.options();
 	this->setCompilerOptions(m_compiler);
+	this->m_compiler->parse();
+	this->m_compiler->analyze();
+	this->m_compiler->compile();
 
-	m_compiler->parse();
-	m_compiler->analyze();
-	m_compiler->compile();
+	this->refreshStateAfterModification();
 
-	m_currentPass = PassType::FunctionDefinitionPass;
-	m_compiler->ast(m_filepath).accept(*this);
-	m_srcDynArgsFuncPass = "";
-	for (auto line: m_srcSplit)
-	{
-		m_srcDynArgsFuncPass += line + "\n";
-	}
-
-	std::vector<std::string> storageVars;
-	std::ostringstream		 contractDefinition;
-	contractDefinition << m_baseFileName.string() << ":" << m_mainContract;
-	m_storageVars_astNodes = m_compiler
-								 ->contractDefinition(contractDefinition.str())
-								 .stateVariables();
-	auto contractNames = m_compiler->contractNames();
-	m_definedFunctions = m_compiler
-							 ->contractDefinition(contractDefinition.str())
-							 .definedFunctions();
-	for (auto var: m_storageVars_astNodes)
-	{
-		m_storageVars_str.emplace_back(var->name());
-	}
-	m_currentPass = PassType::FunctionCallPass;
-	m_compiler->ast(m_filepath).accept(*this);
+	this->m_srcOriginal = m_src;
+	this->m_currentPass = PassType::FunctionDefinitionPass;
+	this->m_compiler->ast(solFilepath).accept(*this);
+	this->m_src			= joinSrcSplit(this->m_srcSplit);
+	this->m_currentPass = PassType::FunctionCallPass;
+	this->m_compiler->ast(m_modifiedSolFilepath).accept(*this);
+	this->m_src = joinSrcSplit(this->m_srcSplit);
 	this->writeModifiedSolidity();
 }
 
-void SourceData::storageVarPass()
+void SourceData::functionCallPass()
 {
-	m_compiler->reset(true);
-	auto newCli = getCli(m_modifiedSolFilepath.c_str());
-	auto paths	= newCli.options().input.paths;
-	// For now we are only supporting single files;
-	for (auto p: paths)
-	{
-		this->m_baseFileName = p;
-	}
-	this->m_fileReader = std::move(newCli.fileReader());
-	this->m_options	   = newCli.options();
-	this->setCompilerOptions(m_compiler);
-	m_compiler->parse();
-	m_compiler->analyze();
-	m_compiler->compile();
-	std::ostringstream contractDefinition;
-	contractDefinition << m_modifiedSolFilepath << ":" << m_mainContract;
-	m_definedFunctions = m_compiler
-							 ->contractDefinition(contractDefinition.str())
-							 .definedFunctions();
-	m_currentPass = PassType::StorageVarPass;
-	m_compiler->ast(m_modifiedSolFilepath).accept(*this);
+	this->refreshStateAfterModification();
+
+	this->m_currentPass = PassType::FunctionCallPass;
+	this->m_compiler->ast(m_modifiedSolFilepath).accept(*this);
+	this->m_src = joinSrcSplit(this->m_srcSplit);
+	this->writeModifiedSolidity();
 }
 
-void SourceData::addressTypePass()
+// void SourceData::addressTypePass()
+// {
+// 	this->refreshStateAfterModification();
+
+// 	this->m_currentPass = PassType::AddrTypePass;
+// 	this->m_compiler->ast(m_modifiedSolFilepath).accept(*this);
+// 	for (auto fun: m_addrMarkedFuncs)
+// 	{
+// 		boost::replace_all(m_src, fun.first, fun.second);
+// 	}
+// 	this->m_srcSplit = splitStr(m_src);
+// 	this->writeModifiedSolidity();
+// }
+
+void SourceData::refreshStateAfterModification()
 {
-	m_compiler->reset(true);
+	this->m_compiler->reset(true);
 	auto newCli = getCli(m_modifiedSolFilepath.c_str());
 	auto paths	= newCli.options().input.paths;
-	// For now we are only supporting single files;
-	for (auto p: paths)
-	{
-		this->m_baseFileName = p;
-	}
+
 	this->m_fileReader = std::move(newCli.fileReader());
 	this->m_options	   = newCli.options();
 	this->setCompilerOptions(m_compiler);
-	m_compiler->parse();
-	m_compiler->analyze();
-	m_compiler->compile();
-	std::ostringstream contractDefinition;
-	contractDefinition << m_modifiedSolFilepath << ":" << m_mainContract;
-	m_definedFunctions = m_compiler
-							 ->contractDefinition(contractDefinition.str())
-							 .definedFunctions();
-	m_currentPass = PassType::AddrTypePass;
-	m_compiler->ast(m_modifiedSolFilepath).accept(*this);
-	for (auto fun : m_addrMarkedFuncs)
+	this->m_compiler->parse();
+	this->m_compiler->analyze();
+	this->m_compiler->compile();
+	this->m_definedFunctions.clear();
+	this->m_storageVars_str.clear();
+	this->m_srcOriginal = m_src;
+	auto contractNames	= m_compiler->contractNames();
+	for (auto name: contractNames)
 	{
-		boost::replace_all(m_src, fun.first, fun.second);
+		for (auto var:
+			 this->m_compiler->contractDefinition(name).stateVariables())
+		{
+			this->m_storageVars_str.emplace_back(var->name());
+		}
+		for (auto func:
+			 this->m_compiler->contractDefinition(name).definedFunctions())
+		{
+			this->m_definedFunctions.emplace_back(func);
+		}
 	}
-	m_srcSplit = splitStr(m_src);
-	compressSigs();
-	writeModifiedSolidity();
 }
 
 void SourceData::prepareSoliditySource(const char* sol_filepath)
 {
 	this->dynFuncArgsPass(sol_filepath);
-	this->addressTypePass();
-	this->storageVarPass();
+	this->m_src = joinSrcSplit(this->m_srcSplit);
+	// this->addressTypePass();
+	// this->m_src		   = joinSrcSplit(this->m_srcSplit);
 	auto newCli		   = getCli(m_modifiedSolFilepath.c_str());
 	auto paths		   = newCli.options().input.paths;
 	this->m_fileReader = std::move(newCli.fileReader());
@@ -509,7 +509,7 @@ void SourceData::prepareSoliditySource(const char* sol_filepath)
 
 	std::ostringstream modifiedContractName;
 	modifiedContractName << m_modifiedSolFilepath << ":" << m_mainContract;
-
+	m_modifiedContractName = modifiedContractName.str();
 	IRGenerator generator(newCli.options().output.evmVersion,
 						  newCli.options().output.revertStrings,
 						  m_compilerOptimizerSettings,
@@ -520,20 +520,21 @@ void SourceData::prepareSoliditySource(const char* sol_filepath)
 									   std::string_view const>();
 
 	tie(yulIR, yulIROptimized) = generator.run(
-		m_compiler->contractDefinition(modifiedContractName.str()),
-		m_compiler->cborMetadata(modifiedContractName.str()),
+		m_compiler->contractDefinition(m_modifiedContractName),
+		m_compiler->cborMetadata(m_modifiedContractName),
 		otherYulSources);
 
 	auto prepass = Prepass(m_src,
 						   m_mainContract,
 						   m_modifiedSolFilepath.c_str(),
 						   m_storageVars_str);
-	auto yul	 = prepass.cleanYul(yulIROptimized, m_mainContract);
-	std::cout << yul << std::endl;
+
+	auto yul = prepass.cleanYul(yulIROptimized, m_mainContract);
+	// std::cout << yul << std::endl;
 	// =============== Generate Yul JSON AST ===============
-	langutil::CharStream ir = langutil::CharStream(yul, m_modifiedSolFilepath);
-	std::variant<phaser::Program, langutil::ErrorList>
-		maybeProgram = phaser::Program::load(ir);
+	langutil::CharStream ir = langutil::CharStream(yul,
+	m_modifiedSolFilepath); std::variant<phaser::Program,
+	langutil::ErrorList> 	maybeProgram = phaser::Program::load(ir);
 
 	if (auto* errorList = std::get_if<langutil::ErrorList>(&maybeProgram))
 	{
@@ -545,17 +546,17 @@ void SourceData::prepareSoliditySource(const char* sol_filepath)
 			.printErrorInformation(*errorList);
 		std::cerr << std::endl;
 	}
-	std::cout << std::get<phaser::Program>(maybeProgram).toJson() << std::endl;
+	std::cout << get<phaser::Program>(maybeProgram).toJson() << std::endl;
 
 	try
 	{
 		if (std::filesystem::remove(m_modifiedSolFilepath))
 			return;
 		else
-		std::cout << "file " << m_modifiedSolFilepath << " not found.\n";
+			std::cout << "file " << m_modifiedSolFilepath << " not found.\n";
 	}
-	catch(const std::filesystem::filesystem_error& err)
+	catch (const std::filesystem::filesystem_error& err)
 	{
-		throw std::runtime_error(err.what());
+		std::cout << "filesystem error: " << err.what() << '\n';
 	}
 }

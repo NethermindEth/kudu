@@ -20,6 +20,12 @@ struct FinalizedYul
 	int						 entrySeqEnd;
 };
 
+struct YulObjects
+{
+	std::vector<std::string> runtimeYul;
+	std::vector<std::string> deploymentYul;
+};
+
 
 struct Selectors
 {
@@ -46,10 +52,11 @@ private:
 	std::vector<std::string> getMainObject(std::string	code,
 										   std::string& main_contract);
 
-	std::vector<std::string> removeExtCodeSizeCheck(std::vector<std::string> yul);
+	std::vector<std::string>
+				 removeExtCodeSizeCheck(std::vector<std::string> yul);
 	void		 getPublicFunchashes(const std::string& contract_path);
 	bool		 isRuntimeObj(std::string str);
-	bool 		 isExtCodeSizeCheck(std::array<std::string, 6> lines);
+	bool		 isExtCodeSizeCheck(std::array<std::string, 6> lines);
 	int			 getSwitchStart(const std::vector<std::string>& func);
 	FinalizedYul removeDeploymentCode(std::vector<std::string> code);
 	std::string	 removeNonDynamicDispatch(std::vector<std::string> entrySeq);
@@ -61,6 +68,8 @@ private:
 
 	std::string				 m_unMarkedSolSource;
 	std::string				 m_markedSolSource;
+	YulObjects				 m_yulObjects;
+	std::string				 m_yulConstructor;
 	std::string				 m_contractPath;
 	std::vector<std::string> m_storageVars;
 	std::vector<std::string> m_solSrcLines_mainContract;

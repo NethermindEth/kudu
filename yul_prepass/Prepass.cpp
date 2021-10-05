@@ -1,4 +1,5 @@
 #include "Prepass.hpp"
+#include <libyul/Utilities.h>
 
 using namespace boost;
 
@@ -70,22 +71,29 @@ std::vector<std::string> Prepass::getRuntimeYul(std::vector<std::string> yul)
 	int						 end		= lines[0].find("\"", start + 1);
 	std::string				 objectName = lines[0].substr(start, end - start);
 	std::string deployedObjName			= "object " + objectName + "_deployed";
-	// replace(deployedObjName.begin(), deployedObjName.end(), '\"', '\0');
-	trim_left(deployedObjName);
-	trim_right(deployedObjName);
+	trim(deployedObjName);
 
 	for (std::size_t i = 0; i < lines.size(); i++)
 	{
 		std::string lineCopy = lines[i];
-		// replace(lineCopy.begin(), lineCopy.end(), '\"', '\0');
-		trim_left(lineCopy);
-		trim_right(lineCopy);
+		trim(lineCopy);
 		if (isRuntimeObj(lineCopy))
 		{
 			std::vector<std::string> runtimeObj = std::vector<std::string>(
 				lines.begin() + i,
 				lines.end());
 			runtimeObj.insert(runtimeObj.begin(), lines[0]);
+			auto deploymentYul = std::vector<std::string>(
+				lines.begin() + 2,
+				lines.begin() + i - 1);
+			deploymentYul.insert(deploymentYul.begin(),
+								 "function __warp_deploy()");
+			std::string yulConstructor;
+			std::for_each(deploymentYul.begin(),
+						  deploymentYul.end(),
+						  [&yulConstructor](std::string line)
+						  { yulConstructor += line + "\n"; });
+			m_yulConstructor = yulConstructor;
 			return runtimeObj;
 		}
 	}
@@ -100,8 +108,7 @@ FinalizedYul Prepass::removeDeploymentCode(std::vector<std::string> code)
 	for (std::size_t i = 1; i != code.size(); ++i)
 	{
 		std::string lineCopy = code[i];
-		trim_left(lineCopy);
-		trim_right(lineCopy);
+		trim(lineCopy);
 		if (std::string(lineCopy.begin(), lineCopy.begin() + 8) == "function")
 		{
 			start = i;
@@ -147,8 +154,7 @@ std::vector<std::string> Prepass::getEndOfOjbect(std::vector<std::string> lines)
 	for (std::size_t i = 0; i < lines.size(); i++)
 	{
 		std::string lineCopy = lines[i];
-		trim_left(lineCopy);
-		trim_right(lineCopy);
+		trim(lineCopy);
 		if (lineCopy.find("Optimized IR") != std::string::npos)
 		{
 			end = i;
@@ -165,8 +171,7 @@ std::vector<std::string> Prepass::getEndOfOjbect(std::vector<std::string> lines)
 std::vector<std::string> Prepass::getMainObject(std::string	 code,
 												std::string& main_contract)
 {
-	trim_left(main_contract);
-	trim_right(main_contract);
+	trim(main_contract);
 	std::transform(main_contract.begin(),
 				   main_contract.end(),
 				   main_contract.begin(),
@@ -176,8 +181,7 @@ std::vector<std::string> Prepass::getMainObject(std::string	 code,
 	for (std::size_t i = 0; i < lines.size(); i++)
 	{
 		std::string lineCopy = lines[i];
-		trim_left(lineCopy);
-		trim_right(lineCopy);
+		trim(lineCopy);
 		std::transform(lineCopy.begin(),
 					   lineCopy.end(),
 					   lineCopy.begin(),
@@ -364,7 +368,7 @@ bool Prepass::isExtCodeSizeCheck(std::array<std::string, 6> lines)
 std::vector<std::string>
 Prepass::removeExtCodeSizeCheck(std::vector<std::string> yul)
 {
-	size_t						 increment = 1;
+	size_t					 increment = 1;
 	std::vector<std::string> result;
 	for (size_t i = 0; i < yul.size(); i += increment)
 	{
@@ -410,10 +414,11 @@ std::string Prepass::addEntryFunc(std::vector<std::string> entrySeq,
 		if (cleanCode[i + 2].find("data \".metadata\" hex\"")
 			!= std::string::npos)
 		{
+			// yulStr += m_yulConstructor + "\n";
 			yulStr += entryStr + "\n";
 		}
 	}
-	return yulStr;
+	return solidity::yul::reindent(yulStr);
 }
 
 std::string Prepass::cleanYul(std::string code, std::string& main_contract)

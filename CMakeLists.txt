@@ -12,7 +12,8 @@ if (SANITIZE)
   add_link_options(-fsanitize=address -fsanitize=leak -fsanitize=undefined)
 endif()
 
-add_compile_options(-Wall -Wextra -pedantic -Werror)
+add_compile_options(-Wall -Wextra -pedantic -Werror -Wno-volatile -Wno-deprecated-declarations)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wno-volatile -Wno-deprecated-declarations -O3")
 
 find_package(Boost CONFIG REQUIRED COMPONENTS regex)
 include_directories(${Boost_INCLUDE_DIRS})
@@ -48,7 +49,7 @@ ExternalProject_Add(
             -DUSE_Z3=OFF -DUSE_CVC4=OFF
 
         BUILD_COMMAND
-            ${CMAKE_COMMAND} --build .
+            make -j20
 
         INSTALL_COMMAND ""
         )

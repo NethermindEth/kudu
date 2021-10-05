@@ -1,58 +1,104 @@
-pragma solidity ^0.8.6;
+// SPDX-License-Identifier: MIT
 
+pragma solidity ^0.8.0;
 
-interface ICounter {
-    function count() external view returns (uint);
-    function increment() external;
-}
+contract ERC20 {
+    mapping(address => uint256) private _balances;
 
+    mapping(address => mapping(address => uint256)) private _allowances;
 
-contract WARP {
-    uint8  public decimals    = 18;
-    uint256 public totalSupply= 100000000000000000000000000000000000;
+    uint256 private _totalSupply;
 
-    mapping (address => uint)                       public  balanceOf;
-    mapping (address => mapping (address => uint))  public  allowance;
-    address counterAddr;
-
-    function setCounterAddr(address _counter) public payable {
-       counterAddr = _counter;
+    function decimals() public view returns (uint8) {
+        return 18;
     }
 
-    function getCount() external view returns (uint) {
-        return ICounter(counterAddr).count();
+    function totalSupply() public view returns (uint256) {
+        return _totalSupply;
     }
 
-    function deposit(address sender, uint256 value) public payable returns (uint, uint){
-        balanceOf[sender] += value;
-        return (21,12);
+    function balanceOf(address account) public returns (uint256) {
+        return _balances[account];
     }
 
-    function withdraw(uint wad, address sender) public payable {
-        require(balanceOf[sender] >= wad);
-        balanceOf[sender] -= wad;
-        (uint a, uint b) = deposit(sender, wad);
-    }
-
-    function approve(address[] calldata guy, uint wad, address sender) public payable returns (bool) {
-        allowance[sender][guy[0]] = wad;
+    function transfer(address recipient, uint256 amount) public returns (bool) {
+        _transfer(msg.sender, recipient, amount);
         return true;
     }
 
-    function transferFrom(address src, address dst, uint wad, address sender)
-        public payable
-        returns (bool)
-    {
-        if (src != sender) {
-            require(allowance[src][sender] >= wad);
-            require(balanceOf[src] >= wad);
-            allowance[src][sender] -= wad;
+    function allowance(address owner, address spender) public view returns (uint256) {
+        return _allowances[owner][spender];
+    }
+
+    function approve(address spender, uint256 amount) public returns (bool) {
+        _approve(msg.sender, spender, amount);
+        return true;
+    }
+
+    function transferFrom(
+        address sender,
+        address recipient,
+        uint256 amount
+    ) public returns (bool) {
+        _transfer(sender, recipient, amount);
+
+        uint256 currentAllowance = _allowances[sender][msg.sender];
+        require(currentAllowance >= amount);
+        unchecked {
+            _approve(sender, msg.sender, currentAllowance - amount);
         }
 
-        balanceOf[src] -= wad;
-        balanceOf[dst] += wad;
+        return true;
+    }
+
+    function increaseAllowance(address spender, uint256 addedValue) public returns (bool) {
+        _approve(msg.sender, spender, _allowances[msg.sender][spender] + addedValue);
+        return true;
+    }
+
+    function decreaseAllowance(address spender, uint256 subtractedValue) public returns (bool) {
+        uint256 currentAllowance = _allowances[msg.sender][spender];
+        require(currentAllowance >= subtractedValue);
+        unchecked {
+            _approve(msg.sender, spender, currentAllowance - subtractedValue);
+        }
 
         return true;
     }
-}
 
+    function _transfer(
+        address sender,
+        address recipient,
+        uint256 amount
+    ) internal {
+        require(sender != address(0));
+        require(recipient != address(0));
+        uint256 senderBalance = _balances[sender];
+        require(senderBalance >= amount);
+        unchecked {
+            _balances[sender] = senderBalance - amount;
+        }
+        _balances[recipient] += amount;
+    }
+
+    function _burn(address account, uint256 amount) internal {
+        require(account != address(0));
+        uint256 accountBalance = _balances[account];
+        require(accountBalance >= amount);
+        unchecked {
+            _balances[account] = accountBalance - amount;
+        }
+        _totalSupply -= amount;
+    }
+
+    function _approve(
+        address owner,
+        address spender,
+        uint256 amount
+    ) internal {
+        require(owner != address(0));
+        require(spender != address(0));
+        _allowances[owner][spender] = amount;
+    }
+
+}
