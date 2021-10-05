@@ -1,4 +1,5 @@
 #include "Prepass.hpp"
+#include <libyul/Utilities.h>
 
 using namespace boost;
 
@@ -70,16 +71,12 @@ std::vector<std::string> Prepass::getRuntimeYul(std::vector<std::string> yul)
 	int						 end		= lines[0].find("\"", start + 1);
 	std::string				 objectName = lines[0].substr(start, end - start);
 	std::string deployedObjName			= "object " + objectName + "_deployed";
-	// replace(deployedObjName.begin(), deployedObjName.end(), '\"', '\0');
-	trim_left(deployedObjName);
-	trim_right(deployedObjName);
+	trim(deployedObjName);
 
 	for (std::size_t i = 0; i < lines.size(); i++)
 	{
 		std::string lineCopy = lines[i];
-		// replace(lineCopy.begin(), lineCopy.end(), '\"', '\0');
-		trim_left(lineCopy);
-		trim_right(lineCopy);
+		trim(lineCopy);
 		if (isRuntimeObj(lineCopy))
 		{
 			std::vector<std::string> runtimeObj = std::vector<std::string>(
@@ -100,8 +97,7 @@ FinalizedYul Prepass::removeDeploymentCode(std::vector<std::string> code)
 	for (std::size_t i = 1; i != code.size(); ++i)
 	{
 		std::string lineCopy = code[i];
-		trim_left(lineCopy);
-		trim_right(lineCopy);
+		trim(lineCopy);
 		if (std::string(lineCopy.begin(), lineCopy.begin() + 8) == "function")
 		{
 			start = i;
@@ -147,8 +143,7 @@ std::vector<std::string> Prepass::getEndOfOjbect(std::vector<std::string> lines)
 	for (std::size_t i = 0; i < lines.size(); i++)
 	{
 		std::string lineCopy = lines[i];
-		trim_left(lineCopy);
-		trim_right(lineCopy);
+		trim(lineCopy);
 		if (lineCopy.find("Optimized IR") != std::string::npos)
 		{
 			end = i;
@@ -165,8 +160,7 @@ std::vector<std::string> Prepass::getEndOfOjbect(std::vector<std::string> lines)
 std::vector<std::string> Prepass::getMainObject(std::string	 code,
 												std::string& main_contract)
 {
-	trim_left(main_contract);
-	trim_right(main_contract);
+	trim(main_contract);
 	std::transform(main_contract.begin(),
 				   main_contract.end(),
 				   main_contract.begin(),
@@ -176,8 +170,7 @@ std::vector<std::string> Prepass::getMainObject(std::string	 code,
 	for (std::size_t i = 0; i < lines.size(); i++)
 	{
 		std::string lineCopy = lines[i];
-		trim_left(lineCopy);
-		trim_right(lineCopy);
+		trim(lineCopy);
 		std::transform(lineCopy.begin(),
 					   lineCopy.end(),
 					   lineCopy.begin(),
@@ -351,6 +344,50 @@ std::string Prepass::exec(std::string cmdStr)
 	return result;
 }
 
+bool Prepass::isExtCodeSizeCheck(std::array<std::string, 6> lines)
+{
+	return (lines[0].find("extcodesize") != std::string::npos
+			and lines[1].find("iszero") != std::string::npos
+			and lines[2].find("if") != std::string::npos
+			and lines[3].find("{") != std::string::npos
+			and lines[4].find("revert") != std::string::npos
+			and lines[5].find("}") != std::string::npos);
+}
+
+std::vector<std::string>
+Prepass::removeExtCodeSizeCheck(std::vector<std::string> yul)
+{
+	size_t					 increment = 1;
+	std::vector<std::string> result;
+	for (size_t i = 0; i < yul.size(); i += increment)
+	{
+		if (i + 6 < yul.size())
+		{
+			std::array<std::string, 6> seq = {yul[i],
+											  yul[i + 1],
+											  yul[i + 2],
+											  yul[i + 3],
+											  yul[i + 4],
+											  yul[i + 5]};
+			if (isExtCodeSizeCheck(seq))
+			{
+				increment = 6;
+			}
+			else
+			{
+				result.emplace_back(yul[i]);
+				increment = 1;
+			}
+		}
+		else
+		{
+			increment = 1;
+			result.emplace_back(yul[i]);
+		}
+	}
+	return result;
+}
+
 std::string Prepass::addEntryFunc(std::vector<std::string> entrySeq,
 								  std::vector<std::string> cleanCode)
 {
@@ -369,13 +406,14 @@ std::string Prepass::addEntryFunc(std::vector<std::string> entrySeq,
 			yulStr += entryStr + "\n";
 		}
 	}
-	return yulStr;
+	return solidity::yul::reindent(yulStr);
 }
 
 std::string Prepass::cleanYul(std::string code, std::string& main_contract)
 {
-	auto					 yul		= getMainObject(code, main_contract);
-	auto					 runtimeYul = getRuntimeYul(yul);
+	auto yul		= getMainObject(code, main_contract);
+	auto runtimeYul = getRuntimeYul(yul);
+	runtimeYul		= removeExtCodeSizeCheck(runtimeYul);
 	std::vector<std::string> clean;
 	std::vector<std::string> entry;
 	FinalizedYul			 finalYul = removeDeploymentCode(runtimeYul);
