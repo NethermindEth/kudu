@@ -56,10 +56,6 @@ int main(int argc, char* argv[])
 
 	auto	   sourceUnit = parser.parse(charStream);
 	SourceData sourceData(main_contract, contractContents, sol_filepath);
-	sourceData.m_srcSplit		  = splitStr(sourceData.m_src);
-	sourceData.m_srcSplitOriginal = splitStr(sourceData.m_src);
-	sourceData.compressSigs();
-	sourceData.prepareSoliditySource(sourceData.m_filepath.c_str());
 
 	return 0;
 }

@@ -12,7 +12,7 @@ if (SANITIZE)
   add_link_options(-fsanitize=address -fsanitize=leak -fsanitize=undefined)
 endif()
 
-add_compile_options(-Wall -Wextra -pedantic -Werror)
+add_compile_options(-Wall -Wextra -pedantic -Werror -O3)
 
 find_package(Boost CONFIG REQUIRED COMPONENTS regex)
 include_directories(${Boost_INCLUDE_DIRS})
