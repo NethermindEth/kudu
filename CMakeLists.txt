@@ -111,5 +111,5 @@ target_include_directories(warp-solidity
 target_link_libraries(warp-solidity full-solidity Boost::regex)
 
 
-add_executable(gen-yul-json-ast gen-yul-json-ast.cpp)
-target_link_libraries(gen-yul-json-ast warp-solidity)
+add_executable(kudu kudu.cpp)
+target_link_libraries(kudu warp-solidity)

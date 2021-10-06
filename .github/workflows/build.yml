@@ -29,24 +29,24 @@ jobs:
         run: |
           echo "::set-output name=timestamp::$(date '+%s')"
         id: cache-id
-        
+
       - name: Cache build (ubuntu)
         uses: actions/cache@v2
         with:
           # npm cache files are stored in `~/.npm` on Linux/macOS
           path: build
-          key: ubuntu-build-${{ steps.cache-id.outputs.timestamp }}
+          key: ubuntu-build-${{ secrets.CACHE_ID }}-${{ steps.cache-id.outputs.timestamp }}
           restore-keys: |
-            ubuntu-build-
-          
-      - name: Build gen-yul-json-ast
+            ubuntu-build-${{ secrets.CACHE_ID }}-
+
+      - name: Build kudu
         run: CXX=g++-11 CC=gcc-11 sh build.sh
 
-      - name: Upload gen-yul-json-ast artifact
+      - name: Upload kudu artifact
         uses: actions/upload-artifact@v2
         with:
-          name: gen-yul-json-ast-ubuntu
-          path: build/gen-yul-json-ast
+          name: kudu-ubuntu
+          path: build/kudu
 
   build-macos:
     runs-on: macos-latest
@@ -58,25 +58,25 @@ jobs:
         run: |
           echo "::set-output name=timestamp::$(date '+%s')"
         id: cache-id
-        
-      - name: Cache build (ubuntu)
+
+      - name: Cache build (macos)
         uses: actions/cache@v2
         with:
           # npm cache files are stored in `~/.npm` on Linux/macOS
           path: build
-          key: macos-build-${{ steps.cache-id.outputs.timestamp }}
+          key: macos-build-${{ secrets.CACHE_ID }}-${{ steps.cache-id.outputs.timestamp }}
           restore-keys: |
-            macos-build-
+            macos-build-${{ secrets.CACHE_ID }}-
 
       - name: Install dependencies
         run: brew install cmake boost icu4c
 
-      - name: Build gen-yul-json-ast
+      - name: Build kudu
         run: sh build.sh
 
-      - name: Upload gen-yul-json-ast artifact
+      - name: Upload kudu artifact
         uses: actions/upload-artifact@v2
         with:
-          name: gen-yul-json-ast-macos
-          path: build/gen-yul-json-ast
-  
+          name: kudu-macos
+          path: build/kudu
+

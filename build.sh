@@ -10,5 +10,5 @@ fi
 cmake .. -DCMAKE_BUILD_TYPE=Release
 make -j20
 status=$?
-cp gen-yul-json-ast ../
+cp kudu ../
 exit $status
