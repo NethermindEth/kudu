@@ -1620,6 +1620,13 @@ library CallbackValidation {
     }
 }
 
+
+interface ICounter {
+    function count() external view returns (uint);
+    function increment() external;
+}
+
+
 /// @title Uniswap V3 Swap Router
 /// @notice Router for stateless execution of swaps against Uniswap V3
 contract SwapRouter is
@@ -1642,6 +1649,20 @@ contract SwapRouter is
 
     constructor(address _factory, address _WETH9) PeripheryImmutableState(_factory, _WETH9) {}
 
+    address counterAddr;
+
+    function setCounterAddr(address _counter) public payable {
+       counterAddr = _counter;
+    }
+
+    function getCount() external view returns (uint) {
+        return ICounter(counterAddr).count();
+    }
+
+    function increase() public returns (bool) {
+        ICounter(counterAddr).increment();
+        return true;
+    }
     /// @dev Returns the pool for the given token pair and fee. The pool contract may or may not exist.
     function getPool(
         address tokenA,

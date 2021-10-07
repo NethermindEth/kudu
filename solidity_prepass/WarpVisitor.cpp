@@ -181,16 +181,16 @@ bool SourceData::visit(FunctionDefinition const& _node)
 		{
 			int	 paramsStart = _node.parameterList().location().start + 1;
 			int	 paramsEnd	 = _node.parameterList().location().end - 1;
-			auto params = std::string(m_srcOriginal.begin() + paramsStart,
-										m_srcOriginal.begin() + paramsEnd);
+			auto params		 = std::string(m_srcOriginal.begin() + paramsStart,
+									   m_srcOriginal.begin() + paramsEnd);
 			if (not contains_warp(m_storageVars_str, _node.name())
 				and hasDynamicArgs(params))
 			{
 				auto markedName = _node.name() + "_dynArgs";
 				auto markedSig	= "    function " + markedName
-									+ std::string(sig.begin() + sig.find('('),
-												sig.end())
-									+ "\n";
+								 + std::string(sig.begin() + sig.find('('),
+											   sig.end())
+								 + "\n";
 				boost::replace_all(m_src, sig, markedSig);
 				m_dynArgFunctions.names.emplace_back(_node.name());
 				std::vector<Type const*> params;
@@ -208,14 +208,33 @@ bool SourceData::visit(FunctionDefinition const& _node)
 	return visitNode(_node);
 }
 
+// NOTE: SHOULD ONLY BE USED ON FUNCTION CALL EXPRESSIONS
+bool SourceData::isExternalCall(Expression const& _expression)
+{
+	auto declr = ASTNode::referencedDeclaration(_expression);
+	if (declr != nullptr)
+	{
+		if (declr->functionType(false))
+		{
+			switch (declr->functionType(false)->kind())
+			{
+			case FunctionType::Kind::External:
+			case FunctionType::Kind::BareCall:
+			case FunctionType::Kind::BareStaticCall:
+				return true;
+			default:
+				return false;
+			}
+		}
+	}
+	return false;
+}
+
 bool SourceData::visit(FunctionCall const& _node)
 {
 	if (m_currentPass == PassType::FunctionCallPass)
 	{
-		auto funcDef = resolveFunctionCall(
-			m_compiler->contractDefinition(m_modifiedSolFilepath + ":"
-										   + m_mainContract),
-			_node);
+		auto funcDef = resolveFunctionCall(_node);
 		if (funcDef != nullptr)
 		{
 			auto selector = funcDef->externalIdentifierHex();
@@ -276,11 +295,16 @@ bool SourceData::checkTypeEqaulity(std::vector<Type const*> const& t1,
 	}
 }
 
-FunctionDefinition const*
-SourceData::resolveFunctionCall(const ContractDefinition& c,
-								FunctionCall const&		  f)
+FunctionDefinition const* SourceData::resolveFunctionCall(FunctionCall const& f)
 {
-	return ASTNode::resolveFunctionCall(f, &c);
+	for (auto name: m_contractNames)
+	{
+		if (auto funcDef = ASTNode::resolveFunctionCall(
+				f,
+				&m_compiler->contractDefinition(name)))
+			return funcDef;
+	}
+	return nullptr;
 }
 
 void SourceData::setCompilerOptions(std::shared_ptr<CompilerStack> compiler)
@@ -335,7 +359,7 @@ void SourceData::dynFuncArgsPass(const char* solFilepath)
 	this->m_srcOriginal = m_src;
 	this->m_currentPass = PassType::FunctionDefinitionPass;
 	this->m_compiler->ast(solFilepath).accept(*this);
-	this->m_src			= joinSrcSplit(this->m_srcSplit);
+	this->m_src = joinSrcSplit(this->m_srcSplit);
 
 	this->m_currentPass = PassType::FunctionCallPass;
 	this->m_compiler->ast(m_modifiedSolFilepath).accept(*this);
@@ -368,10 +392,18 @@ void SourceData::refreshStateAfterModification()
 	this->m_compiler->compile();
 	this->m_definedFunctions.clear();
 	this->m_storageVars_str.clear();
-	this->m_srcOriginal = m_src;
-	auto contractNames	= m_compiler->contractNames();
-	for (auto name: contractNames)
+	this->m_srcOriginal	  = m_src;
+	this->m_contractNames = m_compiler->contractNames();
+	for (auto name: m_contractNames)
 	{
+		if (this->m_compiler->contractDefinition(name).isInterface())
+		{
+			for (auto funcDef:
+				 m_compiler->contractDefinition(name).definedFunctions())
+			{
+				this->m_interafaceFunctionNames.emplace_back(funcDef->name());
+			}
+		}
 		for (auto var:
 			 this->m_compiler->contractDefinition(name).stateVariables())
 		{
@@ -388,7 +420,7 @@ void SourceData::refreshStateAfterModification()
 void SourceData::prepareSoliditySource(const char* sol_filepath)
 {
 	this->dynFuncArgsPass(sol_filepath);
-	this->m_src = joinSrcSplit(this->m_srcSplit);
+	this->m_src		   = joinSrcSplit(this->m_srcSplit);
 	auto newCli		   = getCli(m_modifiedSolFilepath.c_str());
 	auto paths		   = newCli.options().input.paths;
 	this->m_fileReader = std::move(newCli.fileReader());

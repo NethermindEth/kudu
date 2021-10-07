@@ -38,11 +38,11 @@ public:
 			   std::string filepath);
 
 	CommandLineInterface	  getCli(char const* sol_filepath);
-	FunctionDefinition const* resolveFunctionCall(const ContractDefinition& c,
-												  FunctionCall const&		f);
+	FunctionDefinition const* resolveFunctionCall(FunctionCall const& f);
 	FunctionDefinition const*
 		 insideWhichFunction(langutil::SourceLocation const& location);
 	void removeComments();
+	bool isExternalCall(Expression const& expr);
 	bool visit(FunctionDefinition const& _node) override;
 	bool visit(FunctionCall const& _node) override;
 	bool visitNode(ASTNode const& node) override;
@@ -55,6 +55,7 @@ public:
 	void functionCallPass();
 	void refreshStateAfterModification();
 
+	std::vector<std::string>						 m_interafaceFunctionNames;
 	std::vector<std::pair<std::string, std::string>> m_addrMarkedFuncs;
 	std::vector<std::string>						 m_srcSplit;
 	std::vector<std::string>						 m_srcSplitOriginal;
@@ -89,5 +90,6 @@ private:
 
 	std::vector<std::string> m_storageVars;
 	std::vector<std::string> m_hashNames;
+	std::vector<std::string> m_contractNames;
 	MarkedFunctions			 m_dynArgFunctions;
 };

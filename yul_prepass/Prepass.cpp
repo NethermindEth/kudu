@@ -411,16 +411,15 @@ std::string Prepass::addEntryFunc(std::vector<std::string> entrySeq,
 
 std::string Prepass::cleanYul(std::string code, std::string& main_contract)
 {
-	auto yul		= getMainObject(code, main_contract);
-	auto runtimeYul = getRuntimeYul(yul);
-	runtimeYul		= removeExtCodeSizeCheck(runtimeYul);
-	std::vector<std::string> clean;
-	std::vector<std::string> entry;
-	FinalizedYul			 finalYul = removeDeploymentCode(runtimeYul);
-	clean							  = finalYul.onlyDefinitions;
-	entry							  = finalYul.entrySequence;
-	auto placeHolder				  = "\tcode {\n\t\t//holder\n\t}\n";
-	clean.insert(clean.begin() + 1, placeHolder);
-	auto complete = addEntryFunc(entry, clean);
+	auto yul		 = getMainObject(code, main_contract);
+	auto runtimeYul	 = getRuntimeYul(yul);
+	runtimeYul		 = removeExtCodeSizeCheck(runtimeYul);
+	auto placeHolder = "\tcode {\n\t\t//holder\n\t}\n";
+	runtimeYul.insert(runtimeYul.begin() + 1, placeHolder);
+	std::string complete;
+	std::for_each(runtimeYul.begin(),
+				  runtimeYul.end(),
+				  [&complete](const std::string& line)
+				  { complete += line + "\n"; });
 	return complete;
 }
