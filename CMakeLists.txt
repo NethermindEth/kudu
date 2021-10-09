@@ -100,14 +100,15 @@ target_include_directories(full-solidity SYSTEM
 add_dependencies(full-solidity solidity-project)
 
 
-set (WARP_LIBS common/json.hpp common/library.hpp common/library.cpp yul_prepass/Prepass.hpp yul_prepass/Prepass.cpp
+set (WARP_LIBS common/json.hpp common/library.hpp common/library.cpp 
+        yul_prepass/Prepass.hpp yul_prepass/Prepass.cpp
         solidity_prepass/WarpVisitor.hpp solidity_prepass/WarpVisitor.cpp)
 
 
 add_library(warp-solidity ${WARP_LIBS})
 add_dependencies(warp-solidity solidity-project)
 target_include_directories(warp-solidity
-        PUBLIC ${CMAKE_SOURCE_DIR} ${solidity_SOURCE_DIR} ${solidity_BINARY_DIR}/deps/include )
+        PUBLIC ${CMAKE_SOURCE_DIR} ${solidity_SOURCE_DIR} ${solidity_BINARY_DIR}/deps/include)
 target_link_libraries(warp-solidity full-solidity Boost::regex)
 
 
