@@ -160,6 +160,21 @@ CommandLineInterface SourceData::getCli(char const* sol_filepath)
 
 	return cli;
 }
+
+bool SourceData::visit(VariableDeclaration const& _node)
+{
+	if (m_currentPass == PassType::ConstructorPass)
+	{
+		if (_node.isStateVariable()
+			and _node.mutability()
+					== VariableDeclaration::Mutability::Immutable)
+		{
+			throw std::runtime_error(
+				"Warp does not support immutable storage variables yet. ");
+		}
+	}
+	return visitNode(_node);
+}
 bool SourceData::visit(FunctionDefinition const& _node)
 {
 	if (m_currentPass == PassType::FunctionDefinitionPass)
@@ -181,16 +196,16 @@ bool SourceData::visit(FunctionDefinition const& _node)
 		{
 			int	 paramsStart = _node.parameterList().location().start + 1;
 			int	 paramsEnd	 = _node.parameterList().location().end - 1;
-			auto params = std::string(m_srcOriginal.begin() + paramsStart,
-										m_srcOriginal.begin() + paramsEnd);
+			auto params		 = std::string(m_srcOriginal.begin() + paramsStart,
+									   m_srcOriginal.begin() + paramsEnd);
 			if (not contains_warp(m_storageVars_str, _node.name())
 				and hasDynamicArgs(params))
 			{
 				auto markedName = _node.name() + "_dynArgs";
 				auto markedSig	= "    function " + markedName
-									+ std::string(sig.begin() + sig.find('('),
-												sig.end())
-									+ "\n";
+								 + std::string(sig.begin() + sig.find('('),
+											   sig.end())
+								 + "\n";
 				boost::replace_all(m_src, sig, markedSig);
 				m_dynArgFunctions.names.emplace_back(_node.name());
 				std::vector<Type const*> params;
@@ -283,6 +298,122 @@ SourceData::resolveFunctionCall(const ContractDefinition& c,
 	return ASTNode::resolveFunctionCall(f, &c);
 }
 
+void SourceData::getInheritedConstructorCalls(
+	std::vector<ASTPointer<ModifierInvocation>> const& modifierCalls)
+{
+	if (modifierCalls.size() == 0)
+		return;
+	else
+	{
+		for (auto mod: modifierCalls)
+		{
+			std::vector<ASTPointer<Expression>> modifierCallArgs;
+			if (mod->arguments())
+			{
+				modifierCallArgs = *mod->arguments();
+			}
+			auto modDeclr = mod->name().annotation().referencedDeclaration;
+			auto fullyQualifiedName = m_modifiedSolFilepath + ":"
+									  + modDeclr->name();
+			if (modDeclr and contains_warp(m_contractNames, fullyQualifiedName))
+			{
+				std::vector<std::string> callArguments;
+				std::for_each(
+					modifierCallArgs.begin(),
+					modifierCallArgs.end(),
+					[&callArguments](ASTPointer<Expression> expr)
+					{
+						auto identifier = dynamic_cast<Identifier const&>(*expr)
+											  .name();
+						callArguments.emplace_back(identifier);
+					});
+				auto constructorDef = m_compiler
+										  ->contractDefinition(modDeclr->name())
+										  .constructor();
+				if (constructorDef)
+				{
+					auto params		 = constructorDef->parameters();
+					auto paramsStart = constructorDef->parameterList()
+										   .location()
+										   .start;
+					auto paramsEnd = constructorDef->parameterList()
+										 .location()
+										 .end;
+					auto paramsStr = std::string(
+						m_srcOriginal.begin() + paramsStart,
+						m_srcOriginal.begin() + paramsEnd);
+					auto bodyStart = constructorDef->body().location().start;
+					auto bodyEnd   = constructorDef->body().location().end;
+					auto body = std::string(m_srcOriginal.begin() + bodyStart,
+											m_srcOriginal.begin() + bodyEnd);
+					if (body != "{}")
+					{
+						auto bodyOnly = std::string(
+							m_srcOriginal.begin() + bodyStart + 1,
+							m_srcOriginal.begin() + bodyEnd - 1);
+						assert(params.size() == callArguments.size());
+						for (size_t i = 0; i < params.size(); ++i)
+						{
+							replaceIdentifierName(bodyOnly,
+												  params[i]->name(),
+												  callArguments[i]);
+						}
+						m_warpConstructor += bodyOnly;
+					}
+					return getInheritedConstructorCalls(
+						constructorDef->modifiers());
+				}
+			}
+		}
+	}
+}
+
+void SourceData::generateWarpConstructor()
+{
+	m_warpConstructor = "    bool internal initialized = false;\n"
+						"    function __warp_constructor";
+	FunctionDefinition const* constructor = m_compiler
+												->contractDefinition(
+													m_modifiedContractName)
+												.constructor();
+	auto constructorStr = "    "
+						  + std::string(m_srcOriginal.begin()
+											+ constructor->location().start,
+										m_srcOriginal.begin()
+											+ constructor->location().end);
+	auto paramsStart = constructor->parameterList().location().start;
+	auto paramsEnd	 = constructor->parameterList().location().end;
+	auto params		 = std::string(m_srcOriginal.begin() + paramsStart,
+							   m_srcOriginal.begin() + paramsEnd);
+	auto bodyStart	 = constructor->body().location().start;
+	auto bodyEnd	 = constructor->body().location().end;
+	auto body		 = std::string(m_srcOriginal.begin() + bodyStart,
+							   m_srcOriginal.begin() + bodyEnd);
+	if (body != "{}")
+	{
+		auto bodyOnly = std::string(m_srcOriginal.begin() + bodyStart + 1,
+									m_srcOriginal.begin() + bodyEnd - 1);
+		m_warpConstructor += bodyOnly;
+	}
+	m_warpConstructor += params
+						 + " public {\n        if (initialized) {\n       "
+						   "     revert();\n        }\n";
+	m_warpConstructor += "        initialized = true;\n";
+	getInheritedConstructorCalls(constructor->modifiers());
+	m_warpConstructor += "}\n";
+	std::vector<std::string> newSrcSplit;
+	for (size_t i = 0; i < m_srcSplit.size(); ++i)
+	{
+		newSrcSplit.emplace_back(m_srcSplit[i]);
+		if (m_srcSplit[i] == constructorStr)
+		{
+			newSrcSplit.emplace_back(m_warpConstructor);
+		}
+	}
+	m_srcSplit = newSrcSplit;
+}
+
+
 void SourceData::setCompilerOptions(std::shared_ptr<CompilerStack> compiler)
 {
 	if (m_options.metadata.literalSources)
@@ -335,7 +466,7 @@ void SourceData::dynFuncArgsPass(const char* solFilepath)
 	this->m_srcOriginal = m_src;
 	this->m_currentPass = PassType::FunctionDefinitionPass;
 	this->m_compiler->ast(solFilepath).accept(*this);
-	this->m_src			= joinSrcSplit(this->m_srcSplit);
+	this->m_src = joinSrcSplit(this->m_srcSplit);
 
 	this->m_currentPass = PassType::FunctionCallPass;
 	this->m_compiler->ast(m_modifiedSolFilepath).accept(*this);
@@ -344,14 +475,14 @@ void SourceData::dynFuncArgsPass(const char* solFilepath)
 	this->writeModifiedSolidity();
 }
 
-void SourceData::functionCallPass()
+void SourceData::constrcutorPass()
 {
 	this->refreshStateAfterModification();
-	this->m_currentPass = PassType::FunctionCallPass;
+	this->m_currentPass = PassType::ConstructorPass;
 	this->m_compiler->ast(m_modifiedSolFilepath).accept(*this);
-
-	this->m_src = joinSrcSplit(this->m_srcSplit);
+	this->generateWarpConstructor();
 	this->writeModifiedSolidity();
+	this->refreshStateAfterModification();
 }
 
 void SourceData::refreshStateAfterModification()
@@ -369,8 +500,8 @@ void SourceData::refreshStateAfterModification()
 	this->m_definedFunctions.clear();
 	this->m_storageVars_str.clear();
 	this->m_srcOriginal = m_src;
-	auto contractNames	= m_compiler->contractNames();
-	for (auto name: contractNames)
+	m_contractNames		= m_compiler->contractNames();
+	for (auto name: m_contractNames)
 	{
 		for (auto var:
 			 this->m_compiler->contractDefinition(name).stateVariables())
@@ -385,18 +516,20 @@ void SourceData::refreshStateAfterModification()
 	}
 }
 
+
 void SourceData::prepareSoliditySource(const char* sol_filepath)
 {
+	std::ostringstream modifiedContractName;
+	modifiedContractName << m_modifiedSolFilepath << ":" << m_mainContract;
+	m_modifiedContractName = modifiedContractName.str();
 	this->dynFuncArgsPass(sol_filepath);
-	this->m_src = joinSrcSplit(this->m_srcSplit);
+	this->constrcutorPass();
+	this->m_src		   = joinSrcSplit(this->m_srcSplit);
 	auto newCli		   = getCli(m_modifiedSolFilepath.c_str());
 	auto paths		   = newCli.options().input.paths;
 	this->m_fileReader = std::move(newCli.fileReader());
 	this->m_options	   = newCli.options();
 
-	std::ostringstream modifiedContractName;
-	modifiedContractName << m_modifiedSolFilepath << ":" << m_mainContract;
-	m_modifiedContractName = modifiedContractName.str();
 	IRGenerator generator(newCli.options().output.evmVersion,
 						  newCli.options().output.revertStrings,
 						  m_compilerOptimizerSettings,
@@ -417,7 +550,7 @@ void SourceData::prepareSoliditySource(const char* sol_filepath)
 						   m_storageVars_str);
 
 	auto yul = prepass.cleanYul(yulIROptimized, m_mainContract);
-
+	// std::cout << yul << std::endl;
 	// =============== Generate Yul JSON AST ===============
 	langutil::CharStream ir = langutil::CharStream(yul, m_modifiedSolFilepath);
 	std::variant<phaser::Program, langutil::ErrorList>

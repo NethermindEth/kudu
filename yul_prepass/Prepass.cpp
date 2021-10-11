@@ -391,21 +391,16 @@ Prepass::removeExtCodeSizeCheck(std::vector<std::string> yul)
 std::string Prepass::addEntryFunc(std::vector<std::string> entrySeq,
 								  std::vector<std::string> cleanCode)
 {
-	// So we can look ahead by 2 and still make
-	// sure we read all the generated Yul.
-	cleanCode.push_back("\n");
-	cleanCode.push_back("\n");
 	std::string yulStr;
-	auto		entryStr = removeNonDynamicDispatch(entrySeq);
-	for (size_t i = 0; i < cleanCode.size() - 2; i++)
-	{
-		yulStr += cleanCode[i] + "\n";
-		if (cleanCode[i + 2].find("data \".metadata\" hex\"")
-			!= std::string::npos)
-		{
-			yulStr += entryStr + "\n";
-		}
-	}
+	std::string entryStr;
+	std::for_each(entrySeq.begin(),
+				  entrySeq.end(),
+				  [&entryStr](std::string line) { entryStr += line + "\n"; });
+	auto it = std::find(cleanCode.begin(), cleanCode.end(), "        code {");
+	cleanCode.insert(it + 1, entryStr);
+	std::for_each(cleanCode.begin(),
+				  cleanCode.end(),
+				  [&yulStr](std::string line) { yulStr += line + "\n"; });
 	return solidity::yul::reindent(yulStr);
 }
 
