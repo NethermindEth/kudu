@@ -376,6 +376,8 @@ void SourceData::generateWarpConstructor()
 												->contractDefinition(
 													m_modifiedContractName)
 												.constructor();
+	if (not constructor)
+		return;
 	auto constructorStr = "    "
 						  + std::string(m_srcOriginal.begin()
 											+ constructor->location().start,
