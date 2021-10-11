@@ -23,7 +23,7 @@ FetchContent_Declare(
         solidity
 
         GIT_REPOSITORY "https://github.com/NethermindEth/solidity.git"
-        GIT_TAG "8361922bf40c12f6b84b0c501b8a4f6588972cdd"
+        GIT_TAG "19b59b7c6823969c9952e7a5f4b8d843bf252394"
         )
 
 if (NOT solidity_POPULATED)
