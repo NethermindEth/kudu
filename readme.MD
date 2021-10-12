@@ -1,6 +1,8 @@
 # Yul JSON Ast Generator
 
 ## Install:
+
+Make sure you have the Solidity compiler installed. Then run:
 ```sh build.sh```
 
 Generate IR (Yul) AST JSON from Solidity files.
