@@ -186,8 +186,7 @@ bool SourceData::visit(FunctionDefinition const& _node)
 		}
 		else
 		{
-			sig = "    "
-				  + std::string(m_srcOriginal.begin() + _node.location().start,
+			sig = std::string(m_srcOriginal.begin() + _node.location().start,
 								m_srcOriginal.begin()
 									+ _node.body().location().start + 1);
 		}
@@ -201,7 +200,7 @@ bool SourceData::visit(FunctionDefinition const& _node)
 				and hasDynamicArgs(params))
 			{
 				auto markedName = _node.name() + "_dynArgs";
-				auto markedSig	= "    function " + markedName
+				auto markedSig	= "function " + markedName
 								 + std::string(sig.begin() + sig.find('('),
 											   sig.end())
 								 + "\n";
