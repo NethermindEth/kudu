@@ -438,8 +438,9 @@ void SourceData::setYulOptimizerSettings()
 {
 	std::string yulOptimiserSteps = OptimiserSettings::DefaultYulOptimiserSteps;
 	std::erase(yulOptimiserSteps, 'i'); // remove FullInliner
-	std::erase(yulOptimiserSteps, 'F'); // remove FullInliner
-	yulOptimiserSteps += " x"; // that flattens function calls: only one
+	std::erase(yulOptimiserSteps, 'F');
+	std::erase(yulOptimiserSteps, 'v');
+	yulOptimiserSteps += "x"; // that flattens function calls: only one
 
 	this->m_compilerOptimizerSettings = OptimiserSettings::full();
 	this->m_compilerOptimizerSettings.yulOptimiserSteps = yulOptimiserSteps;
@@ -571,6 +572,7 @@ void SourceData::prepareSoliditySource(const char* sol_filepath)
 						   m_storageVars_str);
 
 	auto yul = prepass.cleanYul(yulIROptimized, m_mainContract);
+	// std::cout << yul << std::endl;
 	// =============== Generate Yul JSON AST ===============
 	langutil::CharStream ir = langutil::CharStream(yul, m_modifiedSolFilepath);
 	std::variant<phaser::Program, langutil::ErrorList>
