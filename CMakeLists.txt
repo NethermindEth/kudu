@@ -48,7 +48,7 @@ ExternalProject_Add(
             -DUSE_Z3=OFF -DUSE_CVC4=OFF
 
         BUILD_COMMAND
-            ${CMAKE_COMMAND} --build .
+            make -j20
 
         INSTALL_COMMAND ""
         )

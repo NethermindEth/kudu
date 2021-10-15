@@ -139,7 +139,6 @@ void SourceData::writeModifiedSolidity()
 CommandLineInterface SourceData::getCli(char const* sol_filepath)
 {
 	std::string yulOptimiserSteps = OptimiserSettings::DefaultYulOptimiserSteps;
-	std::erase(yulOptimiserSteps, 'i'); // remove FullInliner
 	yulOptimiserSteps += " x"; // that flattens function calls: only one
 							   // function call per statement is allowed
 	constexpr int solc_argc			   = 2;
@@ -370,8 +369,7 @@ void SourceData::getInheritedConstructorCalls(
 
 void SourceData::generateWarpConstructor()
 {
-	m_warpConstructor = "    bool internal initialized = false;\n"
-						"    function __warp_constructor";
+	m_warpConstructor					  = "    function __warp_constructor";
 	FunctionDefinition const* constructor = m_compiler
 												->contractDefinition(
 													m_modifiedContractName)
@@ -397,10 +395,7 @@ void SourceData::generateWarpConstructor()
 									m_srcOriginal.begin() + bodyEnd - 1);
 		m_warpConstructor += bodyOnly;
 	}
-	m_warpConstructor += params
-						 + " public {\n        if (initialized) {\n       "
-						   "     revert();\n        }\n";
-	m_warpConstructor += "        initialized = true;\n";
+	m_warpConstructor += params + " public {\n";
 	getInheritedConstructorCalls(constructor->modifiers());
 	m_warpConstructor += "}\n";
 	std::vector<std::string> newSrcSplit;
@@ -443,6 +438,7 @@ void SourceData::setYulOptimizerSettings()
 {
 	std::string yulOptimiserSteps = OptimiserSettings::DefaultYulOptimiserSteps;
 	std::erase(yulOptimiserSteps, 'i'); // remove FullInliner
+	std::erase(yulOptimiserSteps, 'F'); // remove FullInliner
 	yulOptimiserSteps += " x"; // that flattens function calls: only one
 
 	this->m_compilerOptimizerSettings = OptimiserSettings::full();
@@ -518,6 +514,29 @@ void SourceData::refreshStateAfterModification()
 	}
 }
 
+std::string SourceData::getSaferYul()
+{
+	auto newCli		   = getCli(m_modifiedSolFilepath.c_str());
+	auto paths		   = newCli.options().input.paths;
+	this->m_fileReader = std::move(newCli.fileReader());
+	this->m_options	   = newCli.options();
+	IRGenerator generator(newCli.options().output.evmVersion,
+						  newCli.options().output.revertStrings,
+						  m_compilerOptimizerSettings,
+						  m_compiler->sourceIndices());
+
+	std::string yulIR, yulIROptimized;
+	auto		otherYulSources = std::map<ContractDefinition const*,
+									   std::string_view const>();
+
+	tie(yulIR, yulIROptimized) = generator.run(
+		m_compiler->contractDefinition(m_modifiedContractName),
+		m_compiler->cborMetadata(m_modifiedContractName),
+		otherYulSources);
+
+	return yulIROptimized;
+}
+
 
 void SourceData::prepareSoliditySource(const char* sol_filepath)
 {
@@ -546,13 +565,14 @@ void SourceData::prepareSoliditySource(const char* sol_filepath)
 		m_compiler->cborMetadata(m_modifiedContractName),
 		otherYulSources);
 
-	auto prepass = Prepass(m_src,
+	auto		prepass	 = Prepass(m_src,
 						   m_mainContract,
 						   m_modifiedSolFilepath.c_str(),
-						   m_storageVars_str);
+						   m_storageVars_str,
+						   "");
 
 	auto yul = prepass.cleanYul(yulIROptimized, m_mainContract);
-	// std::cout << yul << std::endl;
+	std::cout << yul << std::endl;
 	// =============== Generate Yul JSON AST ===============
 	langutil::CharStream ir = langutil::CharStream(yul, m_modifiedSolFilepath);
 	std::variant<phaser::Program, langutil::ErrorList>
@@ -568,7 +588,7 @@ void SourceData::prepareSoliditySource(const char* sol_filepath)
 			.printErrorInformation(*errorList);
 		std::cerr << std::endl;
 	}
-	std::cout << get<phaser::Program>(maybeProgram).toJson() << std::endl;
+	// std::cout << get<phaser::Program>(maybeProgram).toJson() << std::endl;
 
 	try
 	{

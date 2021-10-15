@@ -33,7 +33,8 @@ public:
 	Prepass(std::string				 sol_src,
 			std::string				 main_contract,
 			std::string				 contractPath,
-			std::vector<std::string> storageVars);
+			std::vector<std::string> storageVars,
+			std::string				 saferYul);
 	void tester();
 
 private:
@@ -59,9 +60,11 @@ private:
 	std::string addEntryFunc(std::vector<std::string> entrySeq,
 							 std::vector<std::string> cleanCode);
 
-	std::string				 m_unMarkedSolSource;
-	std::string				 m_markedSolSource;
-	std::string				 m_contractPath;
+	std::string m_unMarkedSolSource;
+	std::string m_markedSolSource;
+	std::string m_contractPath;
+	// Minimal Optimizations applied
+	std::string				 m_saferYul;
 	std::vector<std::string> m_storageVars;
 	std::vector<std::string> m_solSrcLines_mainContract;
 	std::vector<std::string> m_solSrcLines_full;

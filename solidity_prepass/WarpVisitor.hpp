@@ -31,6 +31,7 @@ public:
 		FunctionCallPass,
 		FunctionDefinitionPass,
 		StorageVarPass,
+		StorageFunctionPass,
 	};
 
 	SourceData(std::string main_contract,
@@ -45,21 +46,22 @@ public:
 	void getInheritedConstructorCalls(
 		std::vector<ASTPointer<ModifierInvocation>> const& modifiers);
 
-	void removeComments();
-	bool visit(FunctionDefinition const& _node) override;
-	bool visit(FunctionCall const& _node) override;
-	bool visit(VariableDeclaration const& _node) override;
-	bool visitNode(ASTNode const& node) override;
-	void prepareSoliditySource(const char* sol_filepath);
-	void setCompilerOptions(std::shared_ptr<CompilerStack> compiler);
-	void writeModifiedSolidity();
-	void dynFuncArgsPass(const char* solFilepath);
-	void constrcutorPass();
-	void addressTypePass();
-	void setYulOptimizerSettings();
-	void functionCallPass();
-	void refreshStateAfterModification();
-	void generateWarpConstructor();
+	std::string getSaferYul();
+	void		removeComments();
+	bool		visit(FunctionDefinition const& _node) override;
+	bool		visit(FunctionCall const& _node) override;
+	bool		visit(VariableDeclaration const& _node) override;
+	bool		visitNode(ASTNode const& node) override;
+	void		prepareSoliditySource(const char* sol_filepath);
+	void		setCompilerOptions(std::shared_ptr<CompilerStack> compiler);
+	void		writeModifiedSolidity();
+	void		dynFuncArgsPass(const char* solFilepath);
+	void		constrcutorPass();
+	void		addressTypePass();
+	void		setYulOptimizerSettings();
+	void		functionCallPass();
+	void		refreshStateAfterModification();
+	void		generateWarpConstructor();
 
 	std::vector<std::pair<std::string, std::string>> m_addrMarkedFuncs;
 	std::vector<std::string>						 m_srcSplit;
