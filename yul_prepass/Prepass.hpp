@@ -34,7 +34,6 @@ public:
 			std::string				 main_contract,
 			std::string				 contractPath,
 			std::vector<std::string> storageVars);
-	void tester();
 
 private:
 	std::vector<std::string> removePreamble(std::vector<std::string> lines);
@@ -59,9 +58,9 @@ private:
 	std::string addEntryFunc(std::vector<std::string> entrySeq,
 							 std::vector<std::string> cleanCode);
 
-	std::string				 m_unMarkedSolSource;
-	std::string				 m_markedSolSource;
-	std::string				 m_contractPath;
+	std::string m_unMarkedSolSource;
+	std::string m_markedSolSource;
+	std::string m_contractPath;
 	std::vector<std::string> m_storageVars;
 	std::vector<std::string> m_solSrcLines_mainContract;
 	std::vector<std::string> m_solSrcLines_full;

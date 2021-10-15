@@ -9,9 +9,8 @@ Prepass::Prepass(std::string			  sol_src,
 				 std::string			  contractPath,
 				 std::vector<std::string> storageVars)
 {
-	std::vector<std::string> a = {"hello", "world"};
-	this->m_contractPath	   = contractPath;
-	this->m_storageVars		   = storageVars;
+	this->m_contractPath = contractPath;
+	this->m_storageVars	 = storageVars;
 	this->getPublicFunchashes(contractPath);
 	std::vector<std::string> lines = splitStr(sol_src);
 	std::ostringstream		 search;
@@ -107,8 +106,9 @@ FinalizedYul Prepass::removeDeploymentCode(std::vector<std::string> code)
 	auto onlyDefinitions = std::vector<std::string>(code.begin() + start,
 													code.end());
 	auto entrySequence	 = std::vector<std::string>(code.begin() + 3,
-													code.begin() + start);
-	int	 entrySeqEnd = std::distance(code.begin() + 3, code.begin() + start);
+													code.begin() + start - 2);
+	entrySequence.emplace_back("}");
+	int entrySeqEnd = std::distance(code.begin() + 3, code.begin() + start);
 	entrySequence.insert(entrySequence.begin(),
 						 std::string("\t\t\tfunction fun_ENTRY_POINT()"));
 	onlyDefinitions.insert(onlyDefinitions.begin(),
@@ -409,6 +409,13 @@ std::string Prepass::cleanYul(std::string code, std::string& main_contract)
 	auto yul		= getMainObject(code, main_contract);
 	auto runtimeYul = getRuntimeYul(yul);
 	runtimeYul		= removeExtCodeSizeCheck(runtimeYul);
+	for (auto line: runtimeYul)
+	{
+		if (line.find("setter_fun") != std::string::npos
+			or line.find("getter_fun") != std::string::npos)
+		{
+		}
+	}
 	std::vector<std::string> clean;
 	std::vector<std::string> entry;
 	FinalizedYul			 finalYul = removeDeploymentCode(runtimeYul);
