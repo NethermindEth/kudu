@@ -565,14 +565,12 @@ void SourceData::prepareSoliditySource(const char* sol_filepath)
 		m_compiler->cborMetadata(m_modifiedContractName),
 		otherYulSources);
 
-	auto		prepass	 = Prepass(m_src,
+	auto prepass = Prepass(m_src,
 						   m_mainContract,
 						   m_modifiedSolFilepath.c_str(),
-						   m_storageVars_str,
-						   "");
+						   m_storageVars_str);
 
 	auto yul = prepass.cleanYul(yulIROptimized, m_mainContract);
-	std::cout << yul << std::endl;
 	// =============== Generate Yul JSON AST ===============
 	langutil::CharStream ir = langutil::CharStream(yul, m_modifiedSolFilepath);
 	std::variant<phaser::Program, langutil::ErrorList>
@@ -588,7 +586,7 @@ void SourceData::prepareSoliditySource(const char* sol_filepath)
 			.printErrorInformation(*errorList);
 		std::cerr << std::endl;
 	}
-	// std::cout << get<phaser::Program>(maybeProgram).toJson() << std::endl;
+	std::cout << get<phaser::Program>(maybeProgram).toJson() << std::endl;
 
 	try
 	{

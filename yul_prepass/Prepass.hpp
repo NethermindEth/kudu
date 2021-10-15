@@ -33,9 +33,7 @@ public:
 	Prepass(std::string				 sol_src,
 			std::string				 main_contract,
 			std::string				 contractPath,
-			std::vector<std::string> storageVars,
-			std::string				 saferYul);
-	void tester();
+			std::vector<std::string> storageVars);
 
 private:
 	std::vector<std::string> removePreamble(std::vector<std::string> lines);
@@ -63,8 +61,6 @@ private:
 	std::string m_unMarkedSolSource;
 	std::string m_markedSolSource;
 	std::string m_contractPath;
-	// Minimal Optimizations applied
-	std::string				 m_saferYul;
 	std::vector<std::string> m_storageVars;
 	std::vector<std::string> m_solSrcLines_mainContract;
 	std::vector<std::string> m_solSrcLines_full;

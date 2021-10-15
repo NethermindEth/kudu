@@ -7,10 +7,8 @@ using namespace boost;
 Prepass::Prepass(std::string			  sol_src,
 				 std::string			  main_contract,
 				 std::string			  contractPath,
-				 std::vector<std::string> storageVars,
-				 std::string			  saferYul)
+				 std::vector<std::string> storageVars)
 {
-	m_saferYul			 = saferYul;
 	this->m_contractPath = contractPath;
 	this->m_storageVars	 = storageVars;
 	this->getPublicFunchashes(contractPath);
@@ -423,7 +421,7 @@ std::string Prepass::cleanYul(std::string code, std::string& main_contract)
 	FinalizedYul			 finalYul = removeDeploymentCode(runtimeYul);
 	clean							  = finalYul.onlyDefinitions;
 	entry							  = finalYul.entrySequence;
-	auto placeHolder		   = "\tcode {\n\t\t//holder\n\t}\n";
+	auto placeHolder				  = "\tcode {\n\t\t//holder\n\t}\n";
 	clean.insert(clean.begin() + 1, placeHolder);
 	auto complete = addEntryFunc(entry, clean);
 	return complete;
