@@ -23,7 +23,7 @@ FetchContent_Declare(
         solidity
 
         GIT_REPOSITORY "https://github.com/NethermindEth/solidity.git"
-        GIT_TAG "ff50b6b2063f4a1015e2084d1a8994e20dd8f1af"
+        GIT_TAG "1a44cebe13d5ebe0945157b3aab430d034c49dd8"
         )
 
 if (NOT solidity_POPULATED)
@@ -48,7 +48,7 @@ ExternalProject_Add(
             -DUSE_Z3=OFF -DUSE_CVC4=OFF
 
         BUILD_COMMAND
-            ${CMAKE_COMMAND} --build .
+            make -j20
 
         INSTALL_COMMAND ""
         )
