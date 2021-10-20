@@ -590,7 +590,7 @@ void SourceData::prepareSoliditySource(const char* sol_filepath)
 			.printErrorInformation(*errorList);
 		std::cerr << std::endl;
 	}
-	std::cout << get<phaser::Program>(maybeProgram).toJson() << std::endl;
+	std::cout << std::get<phaser::Program>(maybeProgram).toJson() << std::endl;
 
 	try
 	{

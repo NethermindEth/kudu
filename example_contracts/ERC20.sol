@@ -71,8 +71,6 @@ contract ERC20 {
         address recipient,
         uint256 amount
     ) internal {
-        require(sender != address(0));
-        require(recipient != address(0));
         uint256 senderBalance = _balances[sender];
         require(senderBalance >= amount);
         unchecked {
@@ -82,7 +80,6 @@ contract ERC20 {
     }
 
     function _burn(address account, uint256 amount) internal {
-        require(account != address(0));
         uint256 accountBalance = _balances[account];
         require(accountBalance >= amount);
         unchecked {
@@ -96,8 +93,6 @@ contract ERC20 {
         address spender,
         uint256 amount
     ) internal {
-        require(owner != address(0));
-        require(spender != address(0));
         _allowances[owner][spender] = amount;
     }
 
