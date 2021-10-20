@@ -139,7 +139,10 @@ void SourceData::writeModifiedSolidity()
 CommandLineInterface SourceData::getCli(char const* sol_filepath)
 {
 	std::string yulOptimiserSteps = OptimiserSettings::DefaultYulOptimiserSteps;
-	yulOptimiserSteps += " x"; // that flattens function calls: only one
+	std::erase(yulOptimiserSteps, 'i'); // remove FullInliner
+	std::erase(yulOptimiserSteps, 'F');
+	std::erase(yulOptimiserSteps, 'v');
+	yulOptimiserSteps += "x"; // that flattens function calls: only one
 							   // function call per statement is allowed
 	constexpr int solc_argc			   = 2;
 	char const*	  solc_argv[solc_argc] = {

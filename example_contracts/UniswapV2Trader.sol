@@ -37,17 +37,17 @@ contract UniswapV2Trader {
     //BUY
     uint256 inputAmountWithFee = inputAmount * uint256(997);
     if (fromIsToken0) {
-      require(reserve0 >= reserveInMin, 'INSUFFICIENT_RESERVEIN_AMOUNT');
+      require(reserve0 >= reserveInMin);
       uint256 outputAmount = (inputAmountWithFee * reserve1) / (reserve0 * uint256(1000) + inputAmountWithFee);
-      require(outputAmount >= outputAmountMin, 'INSUFFICIENT_OUTPUT_AMOUNT');
+      require(outputAmount >= outputAmountMin);
       //transfer inputAmount to pairAddress
       from.call(abi.encodeWithSelector(0xa9059cbb, pairAddress, inputAmount));
       //swap
       pair.swap(uint256(0), outputAmount, address(this), new bytes(0));
     } else {
-      require(reserve1 >= reserveInMin, 'INSUFFICIENT_RESERVEIN_AMOUNT');
+      require(reserve1 >= reserveInMin);
       uint256 outputAmount = (inputAmountWithFee * reserve0) / (reserve1 * uint256(1000) + inputAmountWithFee);
-      require(outputAmount >= outputAmountMin, 'INSUFFICIENT_OUTPUT_AMOUNT');
+      require(outputAmount >= outputAmountMin);
       //transfer inputAmount to pairAddress
       from.call(abi.encodeWithSelector(0xa9059cbb, pairAddress, inputAmount));
       //swap

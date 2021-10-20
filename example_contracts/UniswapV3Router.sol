@@ -19,7 +19,7 @@ library TickMath {
     uint160 internal constant MAX_SQRT_RATIO = 1461446703485210103287273052203988822378723970342;
     function getSqrtRatioAtTick(int24 tick) internal pure returns (uint160 sqrtPriceX96) {
         uint256 absTick = tick < 0 ? uint256(-int256(tick)) : uint256(int256(tick));
-        require(absTick <= uint24(MAX_TICK), 'T');
+        require(absTick <= uint24(MAX_TICK));
         uint256 ratio = absTick & 0x1 != 0 ? 0xfffcb933bd6fad37aa2d162d1a594001 : 0x100000000000000000000000000000000;
         if (absTick & 0x2 != 0) ratio = (ratio * 0xfff97272373d413259a46990580e213a) >> 128;
         if (absTick & 0x4 != 0) ratio = (ratio * 0xfff2e50f5f656932ef12357cf3c7fdcc) >> 128;
@@ -45,7 +45,7 @@ library TickMath {
     }
 
     function getTickAtSqrtRatio(uint160 sqrtPriceX96) internal pure returns (int24 tick) {
-        require(sqrtPriceX96 >= MIN_SQRT_RATIO && sqrtPriceX96 < MAX_SQRT_RATIO, 'R');
+        require(sqrtPriceX96 >= MIN_SQRT_RATIO && sqrtPriceX96 < MAX_SQRT_RATIO);
         uint256 ratio = uint256(sqrtPriceX96) << 32;
         uint256 r = ratio;
         uint256 msb = 0;
@@ -442,7 +442,7 @@ abstract contract BlockTimestamp {
 }
 abstract contract PeripheryValidation is BlockTimestamp {
     modifier checkDeadline(uint256 deadline) {
-        require(_blockTimestamp() <= deadline, 'Transaction too old');
+        require(_blockTimestamp() <= deadline);
         _;
     }
 }
@@ -555,7 +555,7 @@ library TransferHelper {
     ) internal {
         (bool success, bytes memory data) =
             token.call(abi.encodeWithSelector(IERC20.transferFrom.selector, from, to, value));
-        require(success && (data.length == 0 || abi.decode(data, (bool))), 'STF');
+        require(success && (data.length == 0 || abi.decode(data, (bool))));
     }
     function safeTransfer(
         address token,
@@ -563,7 +563,7 @@ library TransferHelper {
         uint256 value
     ) internal {
         (bool success, bytes memory data) = token.call(abi.encodeWithSelector(IERC20.transfer.selector, to, value));
-        require(success && (data.length == 0 || abi.decode(data, (bool))), 'ST');
+        require(success && (data.length == 0 || abi.decode(data, (bool))));
     }
     function safeApprove(
         address token,
@@ -571,20 +571,20 @@ library TransferHelper {
         uint256 value
     ) internal {
         (bool success, bytes memory data) = token.call(abi.encodeWithSelector(IERC20.approve.selector, to, value));
-        require(success && (data.length == 0 || abi.decode(data, (bool))), 'SA');
+        require(success && (data.length == 0 || abi.decode(data, (bool))));
     }
     function safeTransferETH(address to, uint256 value) internal {
         (bool success, ) = to.call{value: value}(new bytes(0));
-        require(success, 'STE');
+        require(success);
     }
 }
 abstract contract PeripheryPayments is IPeripheryPayments, PeripheryImmutableState {
     receive() external payable {
-        require(msg.sender == WETH9, 'Not WETH9');
+        require(msg.sender == WETH9);
     }
     function unwrapWETH9(uint256 amountMinimum, address recipient) external payable override {
         uint256 balanceWETH9 = IWETH9(WETH9).balanceOf(address(this));
-        require(balanceWETH9 >= amountMinimum, 'Insufficient WETH9');
+        require(balanceWETH9 >= amountMinimum);
         if (balanceWETH9 > 0) {
             IWETH9(WETH9).withdraw(balanceWETH9);
             TransferHelper.safeTransferETH(recipient, balanceWETH9);
@@ -596,7 +596,7 @@ abstract contract PeripheryPayments is IPeripheryPayments, PeripheryImmutableSta
         address recipient
     ) external payable override {
         uint256 balanceToken = IERC20(token).balanceOf(address(this));
-        require(balanceToken >= amountMinimum, 'Insufficient token');
+        require(balanceToken >= amountMinimum);
         if (balanceToken > 0) {
             TransferHelper.safeTransfer(token, recipient, balanceToken);
         }
@@ -645,7 +645,7 @@ abstract contract PeripheryPaymentsWithFee is PeripheryPayments, IPeripheryPayme
     ) public payable override {
         require(feeBips > 0 && feeBips <= 100);
         uint256 balanceWETH9 = IWETH9(WETH9).balanceOf(address(this));
-        require(balanceWETH9 >= amountMinimum, 'Insufficient WETH9');
+        require(balanceWETH9 >= amountMinimum);
         if (balanceWETH9 > 0) {
             IWETH9(WETH9).withdraw(balanceWETH9);
             uint256 feeAmount = balanceWETH9.mul(feeBips) / 10_000;
@@ -662,7 +662,7 @@ abstract contract PeripheryPaymentsWithFee is PeripheryPayments, IPeripheryPayme
     ) public payable override {
         require(feeBips > 0 && feeBips <= 100);
         uint256 balanceToken = IERC20(token).balanceOf(address(this));
-        require(balanceToken >= amountMinimum, 'Insufficient token');
+        require(balanceToken >= amountMinimum);
         if (balanceToken > 0) {
             uint256 feeAmount = balanceToken.mul(feeBips) / 10_000;
             if (feeAmount > 0) TransferHelper.safeTransfer(token, feeRecipient, feeAmount);
@@ -836,9 +836,9 @@ library BytesLib {
         uint256 _start,
         uint256 _length
     ) internal pure returns (bytes memory) {
-        require(_length + 31 >= _length, 'slice_overflow');
-        require(_start + _length >= _start, 'slice_overflow');
-        require(_bytes.length >= _start + _length, 'slice_outOfBounds');
+        require(_length + 31 >= _length);
+        require(_start + _length >= _start);
+        require(_bytes.length >= _start + _length);
         bytes memory tempBytes;
         assembly {
             switch iszero(_length)
@@ -867,8 +867,8 @@ library BytesLib {
         return tempBytes;
     }
     function toAddress(bytes memory _bytes, uint256 _start) internal pure returns (address) {
-        require(_start + 20 >= _start, 'toAddress_overflow');
-        require(_bytes.length >= _start + 20, 'toAddress_outOfBounds');
+        require(_start + 20 >= _start);
+        require(_bytes.length >= _start + 20);
         address tempAddress;
         assembly {
             tempAddress := div(mload(add(add(_bytes, 0x20), _start)), 0x1000000000000000000000000)
@@ -876,8 +876,8 @@ library BytesLib {
         return tempAddress;
     }
     function toUint24(bytes memory _bytes, uint256 _start) internal pure returns (uint24) {
-        require(_start + 3 >= _start, 'toUint24_overflow');
-        require(_bytes.length >= _start + 3, 'toUint24_outOfBounds');
+        require(_start + 3 >= _start);
+        require(_bytes.length >= _start + 3);
         uint24 tempUint;
         assembly {
             tempUint := mload(add(add(_bytes, 0x3), _start))
@@ -1070,7 +1070,7 @@ contract SwapRouter is
             params.sqrtPriceLimitX96,
             SwapCallbackData({path: abi.encodePacked(params.tokenIn, params.fee, params.tokenOut), payer: msg.sender})
         );
-        require(amountOut >= params.amountOutMinimum, 'Too little received');
+        require(amountOut >= params.amountOutMinimum);
     }
 
     function exactInput(ExactInputParams memory params)
@@ -1105,7 +1105,7 @@ contract SwapRouter is
             }
         }
 
-        require(amountOut >= params.amountOutMinimum, 'Too little received');
+        require(amountOut >= params.amountOutMinimum);
     }
 
     function exactOutputInternal(
@@ -1156,7 +1156,7 @@ contract SwapRouter is
             SwapCallbackData({path: abi.encodePacked(params.tokenOut, params.fee, params.tokenIn), payer: msg.sender})
         );
 
-        require(amountIn <= params.amountInMaximum, 'Too much requested');
+        require(amountIn <= params.amountInMaximum);
         // has to be reset even though we don't use it in the single hop case
         amountInCached = DEFAULT_AMOUNT_IN_CACHED;
     }
@@ -1178,7 +1178,7 @@ contract SwapRouter is
         );
 
         amountIn = amountInCached;
-        require(amountIn <= params.amountInMaximum, 'Too much requested');
+        require(amountIn <= params.amountInMaximum);
         amountInCached = DEFAULT_AMOUNT_IN_CACHED;
     }
 }
