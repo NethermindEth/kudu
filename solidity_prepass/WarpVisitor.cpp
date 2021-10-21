@@ -138,12 +138,6 @@ void SourceData::writeModifiedSolidity()
 
 CommandLineInterface SourceData::getCli(char const* sol_filepath)
 {
-	std::string yulOptimiserSteps = OptimiserSettings::DefaultYulOptimiserSteps;
-	std::erase(yulOptimiserSteps, 'i'); // remove FullInliner
-	std::erase(yulOptimiserSteps, 'F');
-	std::erase(yulOptimiserSteps, 'v');
-	yulOptimiserSteps += "x"; // that flattens function calls: only one
-							   // function call per statement is allowed
 	constexpr int solc_argc			   = 2;
 	char const*	  solc_argv[solc_argc] = {
 		  "--bin",
@@ -429,24 +423,9 @@ void SourceData::setCompilerOptions(std::shared_ptr<CompilerStack> compiler)
 								 || m_options.compiler.outputs.irOptimized);
 	compiler->enableEwasmGeneration(m_options.compiler.outputs.ewasm);
 
-	this->setYulOptimizerSettings();
-
 	this->m_compiler->setOptimiserSettings(m_compilerOptimizerSettings);
 	this->m_compiler->setSources(m_fileReader.sourceCodes());
 	this->m_compiler->setParserErrorRecovery(m_options.input.errorRecovery);
-}
-
-void SourceData::setYulOptimizerSettings()
-{
-	std::string yulOptimiserSteps = OptimiserSettings::DefaultYulOptimiserSteps;
-	std::erase(yulOptimiserSteps, 'i'); // remove FullInliner
-	std::erase(yulOptimiserSteps, 'F');
-	std::erase(yulOptimiserSteps, 'v');
-	yulOptimiserSteps += "x"; // that flattens function calls: only one
-
-	this->m_compilerOptimizerSettings = OptimiserSettings::full();
-	this->m_compilerOptimizerSettings.yulOptimiserSteps = yulOptimiserSteps;
-	this->m_compilerOptimizerSettings.expectedExecutionsPerDeployment = 1;
 }
 
 void SourceData::dynFuncArgsPass(const char* solFilepath)
@@ -537,7 +516,7 @@ std::string SourceData::getSaferYul()
 		m_compiler->cborMetadata(m_modifiedContractName),
 		otherYulSources);
 
-	return yulIROptimized;
+	return yulIR;
 }
 
 
@@ -573,7 +552,7 @@ void SourceData::prepareSoliditySource(const char* sol_filepath)
 						   m_modifiedSolFilepath.c_str(),
 						   m_storageVars_str);
 
-	auto yul = prepass.cleanYul(yulIROptimized, m_mainContract);
+	auto yul = prepass.cleanYul(yulIR, m_mainContract);
 	// std::cout << yul << std::endl;
 	// =============== Generate Yul JSON AST ===============
 	langutil::CharStream ir = langutil::CharStream(yul, m_modifiedSolFilepath);

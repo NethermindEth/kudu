@@ -58,7 +58,6 @@ public:
 	void		dynFuncArgsPass(const char* solFilepath);
 	void		constrcutorPass();
 	void		addressTypePass();
-	void		setYulOptimizerSettings();
 	void		functionCallPass();
 	void		refreshStateAfterModification();
 	void		generateWarpConstructor();

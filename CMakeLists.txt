@@ -100,7 +100,7 @@ target_include_directories(full-solidity SYSTEM
 add_dependencies(full-solidity solidity-project)
 
 
-set (WARP_LIBS common/json.hpp common/library.hpp common/library.cpp 
+set (WARP_LIBS common/json.hpp common/library.hpp common/library.cpp
         yul_prepass/Prepass.hpp yul_prepass/Prepass.cpp
         solidity_prepass/WarpVisitor.hpp solidity_prepass/WarpVisitor.cpp)
 
@@ -113,4 +113,4 @@ target_link_libraries(warp-solidity full-solidity Boost::regex)
 
 
 add_executable(kudu kudu.cpp)
-target_link_libraries(kudu warp-solidity)
+target_link_libraries(kudu -static-libstdc++ warp-solidity)
