@@ -167,12 +167,20 @@ bool SourceData::visit(VariableDeclaration const& _node)
 {
 	if (m_currentPass == PassType::ConstructorPass)
 	{
-		if (_node.isStateVariable()
-			and _node.mutability()
-					== VariableDeclaration::Mutability::Immutable)
+		if (_node.isStateVariable())
 		{
-			throw std::runtime_error(
-				"Warp does not support immutable storage variables yet. ");
+			if (_node.mutability()
+					== VariableDeclaration::Mutability::Immutable)
+				throw std::runtime_error(
+					"Warp does not support immutable storage variables yet. ");
+			if (_node.visibility() == Visibility::Private)
+			{
+				throw std::runtime_error("Warp does not support private storage variables yet. Please change storage variables to public");
+			}
+		}
+		if (_node.type()->canonicalName() == "string")
+		{
+			throw std::runtime_error("Warp does not support strings yet. String support will be added in the near future");
 		}
 	}
 	return visitNode(_node);
@@ -324,9 +332,29 @@ void SourceData::getInheritedConstructorCalls(
 					modifierCallArgs.end(),
 					[&callArguments](ASTPointer<Expression> expr)
 					{
-						auto identifier = dynamic_cast<Identifier const&>(*expr)
-											  .name();
-						callArguments.emplace_back(identifier);
+						try 
+						{
+							std::string identifier = dynamic_cast<Identifier const&>(*expr)
+												.name();
+							callArguments.emplace_back(identifier);
+						}
+						catch (const std::bad_cast& e)
+						{
+							Type const* type = dynamic_cast<Literal const&>(*expr).annotation().type;
+							switch (type->category())
+							{
+							case Type::Category::RationalNumber:
+							case Type::Category::Bool:
+							case Type::Category::Address:
+							{
+								solidity::u256 literal =  type->literalValue(&dynamic_cast<Literal const&>(*expr));
+								callArguments.emplace_back(boost::to_string(literal));
+								break;
+							}
+							default:
+								solUnimplemented("Only integer and boolean literals implemented for now.");
+							}
+						}
 					});
 				auto constructorDef = m_compiler
 										  ->contractDefinition(modDeclr->name())
@@ -352,7 +380,8 @@ void SourceData::getInheritedConstructorCalls(
 						auto bodyOnly = std::string(
 							m_srcOriginal.begin() + bodyStart + 1,
 							m_srcOriginal.begin() + bodyEnd - 1);
-						assert(params.size() == callArguments.size());
+						bool eq = params.size() == callArguments.size();
+						solAssert(eq, "WarpVisitor.cpp:376 -> parameter.size() != callArguments.size().");
 						for (size_t i = 0; i < params.size(); ++i)
 						{
 							replaceIdentifierName(bodyOnly,
@@ -378,8 +407,7 @@ void SourceData::generateWarpConstructor()
 												.constructor();
 	if (not constructor)
 		return;
-	auto constructorStr = "    "
-						  + std::string(m_srcOriginal.begin()
+	auto constructorStr = std::string(m_srcOriginal.begin()
 											+ constructor->location().start,
 										m_srcOriginal.begin()
 											+ constructor->location().end);
@@ -391,23 +419,30 @@ void SourceData::generateWarpConstructor()
 	auto bodyEnd	 = constructor->body().location().end;
 	auto body		 = std::string(m_srcOriginal.begin() + bodyStart,
 							   m_srcOriginal.begin() + bodyEnd);
+	m_warpConstructor += params + " public {\n";
 	if (body != "{}")
 	{
 		auto bodyOnly = std::string(m_srcOriginal.begin() + bodyStart + 1,
 									m_srcOriginal.begin() + bodyEnd - 1);
 		m_warpConstructor += bodyOnly;
 	}
-	m_warpConstructor += params + " public {\n";
 	getInheritedConstructorCalls(constructor->modifiers());
 	m_warpConstructor += "}\n";
 	std::vector<std::string> newSrcSplit;
+	bool inMainContract = false;
+	std::string check = "contract " + m_mainContract;
 	for (size_t i = 0; i < m_srcSplit.size(); ++i)
 	{
-		newSrcSplit.emplace_back(m_srcSplit[i]);
-		if (m_srcSplit[i] == constructorStr)
+		if (m_srcSplit[i].find(check) != std::string::npos )
+		{
+			inMainContract = true;
+		}
+		if (m_srcSplit[i].find("constructor") != std::string::npos and inMainContract)
 		{
 			newSrcSplit.emplace_back(m_warpConstructor);
 		}
+		newSrcSplit.emplace_back(m_srcSplit[i]);
+
 	}
 	m_srcSplit = newSrcSplit;
 }
@@ -476,12 +511,24 @@ void SourceData::dynFuncArgsPass(const char* solFilepath)
 	this->writeModifiedSolidity();
 }
 
-void SourceData::constrcutorPass()
+void SourceData::constrcutorPass(const char* solFilepath)
 {
+	auto cli   = getCli(solFilepath);
+	auto paths = cli.options().input.paths;
+
+	this->m_fileReader = std::move(cli.fileReader());
+	this->m_compiler   = std::make_shared<CompilerStack>(m_fileReader.reader());
+	this->m_options	   = cli.options();
+	this->setCompilerOptions(m_compiler);
+	this->m_compiler->parse();
+	this->m_compiler->analyze();
+	this->m_compiler->compile();
 	this->refreshStateAfterModification();
 	this->m_currentPass = PassType::ConstructorPass;
+	this->m_srcOriginal = m_src;
 	this->m_compiler->ast(m_modifiedSolFilepath).accept(*this);
 	this->generateWarpConstructor();
+	this->m_src = joinSrcSplit(this->m_srcSplit);
 	this->writeModifiedSolidity();
 	this->refreshStateAfterModification();
 }
@@ -546,8 +593,10 @@ void SourceData::prepareSoliditySource(const char* sol_filepath)
 	std::ostringstream modifiedContractName;
 	modifiedContractName << m_modifiedSolFilepath << ":" << m_mainContract;
 	m_modifiedContractName = modifiedContractName.str();
-	this->dynFuncArgsPass(sol_filepath);
-	this->constrcutorPass();
+	// Removing this optimization for now, as we are adding all functions
+	// to fun_ENTRY_POINT for warped->warped contract calls
+	// this->dynFuncArgsPass(sol_filepath);
+	this->constrcutorPass(sol_filepath);
 	this->m_src		   = joinSrcSplit(this->m_srcSplit);
 	auto newCli		   = getCli(m_modifiedSolFilepath.c_str());
 	auto paths		   = newCli.options().input.paths;

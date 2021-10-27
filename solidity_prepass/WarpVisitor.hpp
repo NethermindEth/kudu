@@ -56,7 +56,7 @@ public:
 	void		setCompilerOptions(std::shared_ptr<CompilerStack> compiler);
 	void		writeModifiedSolidity();
 	void		dynFuncArgsPass(const char* solFilepath);
-	void		constrcutorPass();
+	void		constrcutorPass(const char* solFilepath);
 	void		addressTypePass();
 	void		setYulOptimizerSettings();
 	void		functionCallPass();
