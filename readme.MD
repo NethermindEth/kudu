@@ -2,8 +2,23 @@
 
 ## Install:
 
-Install g++-11 and make sure you have the Solidity compiler installed. Then run:
-```sh build.sh```
+Install g++-11 and make sure you have the Solidity compiler installed.
+
+Install the boost C++ libraries:
+MacOS
+```
+brew install boost
+```
+
+Linux:
+```
+sudo apt-get install libboost-all-dev
+```
+
+Then run:
+```
+sh build.sh
+```
 
 Generate IR (Yul) AST JSON from Solidity files.
 
