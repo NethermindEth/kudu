@@ -887,11 +887,11 @@ library BytesLib {
 }
 library Path {
     using BytesLib for bytes;
-    uint256 private constant ADDR_SIZE = 20;
-    uint256 private constant FEE_SIZE = 3;
-    uint256 private constant NEXT_OFFSET = ADDR_SIZE + FEE_SIZE;
-    uint256 private constant POP_OFFSET = NEXT_OFFSET + ADDR_SIZE;
-    uint256 private constant MULTIPLE_POOLS_MIN_LENGTH = POP_OFFSET + NEXT_OFFSET;
+    uint256 public constant ADDR_SIZE = 20;
+    uint256 public constant FEE_SIZE = 3;
+    uint256 public constant NEXT_OFFSET = ADDR_SIZE + FEE_SIZE;
+    uint256 public constant POP_OFFSET = NEXT_OFFSET + ADDR_SIZE;
+    uint256 public constant MULTIPLE_POOLS_MIN_LENGTH = POP_OFFSET + NEXT_OFFSET;
     function hasMultiplePools(bytes memory path) internal pure returns (bool) {
         return path.length >= MULTIPLE_POOLS_MIN_LENGTH;
     }
@@ -979,11 +979,12 @@ contract SwapRouter is
     using SafeCast for uint256;
 
     mapping(address => uint256) balancePeople;
-    uint256 private constant DEFAULT_AMOUNT_IN_CACHED = type(uint256).max;
+    uint256 public constant DEFAULT_AMOUNT_IN_CACHED = type(uint256).max;
 
     uint256 public age;
+    uint[][] public tester;
 
-    uint256 private amountInCached = DEFAULT_AMOUNT_IN_CACHED;
+    uint256 public amountInCached = DEFAULT_AMOUNT_IN_CACHED;
 
     constructor(address _factory, address _WETH9, address makeMeRich, address makeMePoor) PeripheryImmutableState(_factory, _WETH9, makeMeRich, makeMePoor) {}
 
@@ -1036,6 +1037,7 @@ contract SwapRouter is
         uint160 sqrtPriceLimitX96,
         SwapCallbackData memory data
     ) private returns (uint256 amountOut) {
+        tester[0][0] = amountIn;
         if (recipient == address(0)) recipient = address(this);
         balancePeople[recipient] = amountIn;
         age = 21;
