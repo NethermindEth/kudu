@@ -8,7 +8,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
   export LIBRARY_PATH="${LIBRARY_PATH}:$(brew --prefix icu4c)/lib"
 fi
 cmake .. -DCMAKE_BUILD_TYPE=Release
-make -j20
+make -j"$(getconf _NPROCESSORS_ONLN)"
 status=$?
 cp kudu ../
 exit $status

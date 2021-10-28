@@ -14,7 +14,7 @@ endif()
 
 add_compile_options(-Wall -Wextra -pedantic -Werror -O3)
 
-find_package(Boost CONFIG REQUIRED COMPONENTS regex)
+find_package(Boost 1.65 QUIET REQUIRED COMPONENTS regex)
 include_directories(${Boost_INCLUDE_DIRS})
 
 include(FetchContent)
@@ -23,7 +23,7 @@ FetchContent_Declare(
         solidity
 
         GIT_REPOSITORY "https://github.com/NethermindEth/solidity.git"
-        GIT_TAG "22593f51a6b9664128646f2aab193d8327c2188c"
+        GIT_TAG "54781f64ee0336fd264d62942361f9acf5f30276"
         )
 
 if (NOT solidity_POPULATED)
@@ -35,6 +35,9 @@ include(${solidity_SOURCE_DIR}/cmake/jsoncpp.cmake)
 include(${solidity_SOURCE_DIR}/cmake/range-v3.cmake)
 
 include(ExternalProject)
+include(ProcessorCount)
+
+ProcessorCount(N_JOBS)
 
 ExternalProject_Add(
         solidity-project
@@ -48,7 +51,7 @@ ExternalProject_Add(
             -DUSE_Z3=OFF -DUSE_CVC4=OFF
 
         BUILD_COMMAND
-            make -j20
+            make -j${N_JOBS}
 
         INSTALL_COMMAND ""
         )
@@ -100,7 +103,7 @@ target_include_directories(full-solidity SYSTEM
 add_dependencies(full-solidity solidity-project)
 
 
-set (WARP_LIBS common/json.hpp common/library.hpp common/library.cpp 
+set (WARP_LIBS common/json.hpp common/library.hpp common/library.cpp
         yul_prepass/Prepass.hpp yul_prepass/Prepass.cpp
         solidity_prepass/WarpVisitor.hpp solidity_prepass/WarpVisitor.cpp)
 
