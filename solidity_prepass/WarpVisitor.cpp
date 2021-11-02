@@ -558,7 +558,7 @@ void SourceData::generateWarpConstructor()
 		{
 			inMainContract = true;
 		}
-		if (m_srcSplit[i].find("constructor") != std::string::npos
+		if (m_srcSplit[i].find(" constructor(") != std::string::npos
 			and inMainContract)
 		{
 			newSrcSplit.emplace_back(m_warpConstructor);
