@@ -9,7 +9,7 @@
 #include <string>
 
 #include "common/library.hpp"
-#include "yul_prepass/Prepass.hpp"
+#include "yul_prepass/YulCleaner.hpp"
 
 using namespace solidity::frontend;
 using namespace solidity;
@@ -20,6 +20,7 @@ struct MarkedFunctions
 	std::vector<std::string>			  selectors;
 	std::vector<std::vector<Type const*>> parameters;
 };
+
 
 class SourceData: public ASTConstVisitor
 {
@@ -51,12 +52,14 @@ public:
 	bool		visit(FunctionDefinition const& _node) override;
 	bool		visit(FunctionCall const& _node) override;
 	bool		visit(VariableDeclaration const& _node) override;
+	bool 		visit(Identifier const& _node) override;
 	bool		visitNode(ASTNode const& node) override;
 	void		prepareSoliditySource(const char* sol_filepath);
 	void		setCompilerOptions(std::shared_ptr<CompilerStack> compiler);
 	void		writeModifiedSolidity();
 	void		dynFuncArgsPass(const char* solFilepath);
 	void		constrcutorPass(const char* solFilepath);
+	void		addressPass();
 	void		addressTypePass();
 	void		setYulOptimizerSettings();
 	void		functionCallPass();
@@ -68,13 +71,19 @@ public:
 	std::vector<std::string>						 m_srcSplitOriginal;
 	boost::filesystem::path							 m_baseFileName;
 
+	bool					 m_willGenerateConstructor = false;
 	std::string				 m_warpConstructor;
+	std::string				 m_warpConstructorName;
+	std::string				 m_warpConstructorSig;
+	std::string				 m_warpConstructorSelector;
 	std::string				 m_mainContract;
 	std::string				 m_currentFunction;
 	std::string				 m_modifiedContractName;
 	std::string				 m_currentFunctionModified;
 	std::vector<std::string> m_currentFunctionParams;
 	std::vector<std::string> m_contractNames;
+	std::vector<std::string> m_interfaceNames;
+	std::map<std::string, std::vector<std::string>> m_interfaces;
 	std::string				 m_filepath;
 	std::string				 m_modifiedSolFilepath;
 	std::string				 m_srcModified;

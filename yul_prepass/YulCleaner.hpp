@@ -26,11 +26,11 @@ struct Selectors
 	std::vector<std::string> selectors;
 };
 
-class Prepass
+class YulCleaner
 {
 public:
 	std::string cleanYul(std::string code, std::string& main_contract);
-	Prepass(std::string				 sol_src,
+	YulCleaner(std::string				 sol_src,
 			std::string				 main_contract,
 			std::string				 contractPath,
 			std::vector<std::string> storageVars);

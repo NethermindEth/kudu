@@ -1,10 +1,10 @@
-#include "Prepass.hpp"
+#include "YulCleaner.hpp"
 #include <libyul/Utilities.h>
 
 using namespace boost;
 
 
-Prepass::Prepass(std::string			  sol_src,
+YulCleaner::YulCleaner(std::string			  sol_src,
 				 std::string			  main_contract,
 				 std::string			  contractPath,
 				 std::vector<std::string> storageVars)
@@ -39,14 +39,14 @@ bool isFunctionSig(std::string line)
 }
 
 
-bool Prepass::isRuntimeObj(std::string str)
+bool YulCleaner::isRuntimeObj(std::string str)
 {
 	return ((str.find('{')) != std::string::npos)
 		   && (str.find("object") != std::string::npos)
 		   && (str.find("_deployed") != std::string::npos);
 }
 
-std::vector<std::string> Prepass::removePreamble(std::vector<std::string> lines)
+std::vector<std::string> YulCleaner::removePreamble(std::vector<std::string> lines)
 {
 	for (size_t i = 0; i != lines.size(); ++i)
 	{
@@ -63,7 +63,7 @@ std::vector<std::string> Prepass::removePreamble(std::vector<std::string> lines)
 	return std::vector<std::string>();
 }
 
-std::vector<std::string> Prepass::getRuntimeYul(std::vector<std::string> yul)
+std::vector<std::string> YulCleaner::getRuntimeYul(std::vector<std::string> yul)
 {
 	std::vector<std::string> lines		= removePreamble(yul);
 	int						 start		= lines[0].find("\"");
@@ -89,7 +89,7 @@ std::vector<std::string> Prepass::getRuntimeYul(std::vector<std::string> yul)
 }
 
 
-FinalizedYul Prepass::removeDeploymentCode(std::vector<std::string> code)
+FinalizedYul YulCleaner::removeDeploymentCode(std::vector<std::string> code)
 {
 	std::vector<std::string> cleanedCode;
 	int						 start = 0;
@@ -123,7 +123,7 @@ struct EntrySeqData
 	int						 switchStart;
 };
 
-int Prepass::getSwitchStart(const std::vector<std::string>& func)
+int YulCleaner::getSwitchStart(const std::vector<std::string>& func)
 {
 	for (size_t i = 0; i < func.size(); ++i)
 	{
@@ -137,7 +137,7 @@ int Prepass::getSwitchStart(const std::vector<std::string>& func)
 }
 
 
-std::vector<std::string> Prepass::getEndOfOjbect(std::vector<std::string> lines)
+std::vector<std::string> YulCleaner::getEndOfOjbect(std::vector<std::string> lines)
 {
 	int end = 0;
 	for (std::size_t i = 0; i < lines.size(); i++)
@@ -157,35 +157,7 @@ std::vector<std::string> Prepass::getEndOfOjbect(std::vector<std::string> lines)
 	return std::vector<std::string>(lines.begin(), lines.begin() + end);
 }
 
-std::vector<std::string> Prepass::getMainObject(std::string	 code,
-												std::string& main_contract)
-{
-	trim(main_contract);
-	std::transform(main_contract.begin(),
-				   main_contract.end(),
-				   main_contract.begin(),
-				   [](unsigned char c) { return std::tolower(c); });
-	auto lines = splitStr(code);
-	int	 start = 0;
-	for (std::size_t i = 0; i < lines.size(); i++)
-	{
-		std::string lineCopy = lines[i];
-		trim(lineCopy);
-		std::transform(lineCopy.begin(),
-					   lineCopy.end(),
-					   lineCopy.begin(),
-					   [](unsigned char c) { return std::tolower(c); });
-		if (lineCopy.find(main_contract) != std::string::npos)
-		{
-			start = int(i) - 1;
-			break;
-		}
-	}
-	auto res = std::vector<std::string>(lines.begin() + start, lines.end());
-	return getEndOfOjbect(res);
-}
-
-std::string Prepass::removeNonDynamicDispatch(std::vector<std::string> entrySeq)
+std::string YulCleaner::removeNonDynamicDispatch(std::vector<std::string> entrySeq)
 {
 	auto		newEntrySeq = concatCaseBlocks(entrySeq);
 	std::string prefix;
@@ -253,7 +225,7 @@ std::string Prepass::removeNonDynamicDispatch(std::vector<std::string> entrySeq)
 }
 
 std::vector<std::string>
-Prepass::concatCaseBlocks(std::vector<std::string> entrySeq)
+YulCleaner::concatCaseBlocks(std::vector<std::string> entrySeq)
 {
 	std::vector<std::string> newSeq;
 	int						 increment = 1;
@@ -271,7 +243,7 @@ Prepass::concatCaseBlocks(std::vector<std::string> entrySeq)
 }
 
 std::pair<std::string, int>
-Prepass::endOfCaseBlock(std::vector<std::string> caseBlock, int startPos)
+YulCleaner::endOfCaseBlock(std::vector<std::string> caseBlock, int startPos)
 {
 	for (size_t i = startPos; i < caseBlock.size(); i++)
 	{
@@ -303,7 +275,7 @@ Prepass::endOfCaseBlock(std::vector<std::string> caseBlock, int startPos)
 	return std::pair<std::string, int>("", -1);
 }
 
-void Prepass::getPublicFunchashes(const std::string& contract_path)
+void YulCleaner::getPublicFunchashes(const std::string& contract_path)
 {
 	std::ostringstream cmd;
 	cmd << "solc --combined-json hashes " << contract_path;
@@ -327,7 +299,7 @@ void Prepass::getPublicFunchashes(const std::string& contract_path)
 	}
 }
 
-std::string Prepass::exec(std::string cmdStr)
+std::string YulCleaner::exec(std::string cmdStr)
 {
 	const char*								 cmd = cmdStr.c_str();
 	std::array<char, 4096>					 buffer;
@@ -344,7 +316,7 @@ std::string Prepass::exec(std::string cmdStr)
 	return result;
 }
 
-bool Prepass::isExtCodeSizeCheck(std::array<std::string, 6> lines)
+bool YulCleaner::isExtCodeSizeCheck(std::array<std::string, 6> lines)
 {
 	return (lines[0].find("extcodesize") != std::string::npos
 			and lines[1].find("iszero") != std::string::npos
@@ -355,7 +327,7 @@ bool Prepass::isExtCodeSizeCheck(std::array<std::string, 6> lines)
 }
 
 std::vector<std::string>
-Prepass::removeExtCodeSizeCheck(std::vector<std::string> yul)
+YulCleaner::removeExtCodeSizeCheck(std::vector<std::string> yul)
 {
 	size_t					 increment = 1;
 	std::vector<std::string> result;
@@ -388,7 +360,7 @@ Prepass::removeExtCodeSizeCheck(std::vector<std::string> yul)
 	return result;
 }
 
-std::string Prepass::addEntryFunc(std::vector<std::string> entrySeq,
+std::string YulCleaner::addEntryFunc(std::vector<std::string> entrySeq,
 								  std::vector<std::string> cleanCode)
 {
 	std::string yulStr;
@@ -404,18 +376,10 @@ std::string Prepass::addEntryFunc(std::vector<std::string> entrySeq,
 	return solidity::yul::reindent(yulStr);
 }
 
-std::string Prepass::cleanYul(std::string code, std::string& main_contract)
+std::string YulCleaner::cleanYul(std::string code, std::string& main_contract)
 {
-	auto yul		= getMainObject(code, main_contract);
-	auto runtimeYul = getRuntimeYul(yul);
+	auto runtimeYul = getRuntimeYul(splitStr(code));
 	runtimeYul		= removeExtCodeSizeCheck(runtimeYul);
-	for (auto line: runtimeYul)
-	{
-		if (line.find("setter_fun") != std::string::npos
-			or line.find("getter_fun") != std::string::npos)
-		{
-		}
-	}
 	std::vector<std::string> clean;
 	std::vector<std::string> entry;
 	FinalizedYul			 finalYul = removeDeploymentCode(runtimeYul);
