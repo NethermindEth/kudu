@@ -936,7 +936,7 @@ library PoolAddress {
     function computeAddress(address factory, PoolKey memory key) internal pure returns (address pool) {
         require(key.token0 < key.token1);
         pool = address(
-            bytes20(
+            bytes32(
                 keccak256(
                     abi.encodePacked(
                         hex'ff',

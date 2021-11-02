@@ -12,9 +12,9 @@ if (SANITIZE)
   add_link_options(-fsanitize=address -fsanitize=leak -fsanitize=undefined)
 endif()
 
-add_compile_options(-Wall -Wextra -pedantic -Werror -O3)
+add_compile_options(-Wall -Wextra -pedantic -Werror -O3 -Wno-unused-parameter)
 
-find_package(Boost 1.65 QUIET REQUIRED COMPONENTS regex)
+find_package(Boost CONFIG REQUIRED COMPONENTS regex)
 include_directories(${Boost_INCLUDE_DIRS})
 
 include(FetchContent)
@@ -35,9 +35,6 @@ include(${solidity_SOURCE_DIR}/cmake/jsoncpp.cmake)
 include(${solidity_SOURCE_DIR}/cmake/range-v3.cmake)
 
 include(ExternalProject)
-include(ProcessorCount)
-
-ProcessorCount(N_JOBS)
 
 ExternalProject_Add(
         solidity-project
@@ -51,7 +48,7 @@ ExternalProject_Add(
             -DUSE_Z3=OFF -DUSE_CVC4=OFF
 
         BUILD_COMMAND
-            make -j${N_JOBS}
+            make -j20
 
         INSTALL_COMMAND ""
         )
@@ -103,10 +100,10 @@ target_include_directories(full-solidity SYSTEM
 add_dependencies(full-solidity solidity-project)
 
 
-set (WARP_LIBS common/json.hpp common/library.hpp common/library.cpp
-        yul_prepass/Prepass.hpp yul_prepass/Prepass.cpp
+set (WARP_LIBS common/json.hpp common/library.hpp common/library.cpp 
+        yul_prepass/YulVisitor.hpp yul_prepass/YulVisitor.cpp
+        yul_prepass/YulCleaner.hpp yul_prepass/YulCleaner.cpp
         solidity_prepass/WarpVisitor.hpp solidity_prepass/WarpVisitor.cpp)
-
 
 add_library(warp-solidity ${WARP_LIBS})
 add_dependencies(warp-solidity solidity-project)

@@ -11,7 +11,7 @@
 #include <tools/yulPhaser/Program.h>
 
 #include "solidity_prepass/WarpVisitor.hpp"
-#include "yul_prepass/Prepass.hpp"
+#include "yul_prepass/YulCleaner.hpp"
 
 std::vector<std::string> splitStr(const std::string& str);
 
