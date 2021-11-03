@@ -14,9 +14,10 @@
 #include "yul_prepass/YulCleaner.hpp"
 #include "yul_prepass/YulVisitor.hpp"
 
-inline bool fileExists (const std::string& name) {
-  struct stat buffer;   
-  return (stat (name.c_str(), &buffer) == 0); 
+inline bool fileExists(const std::string& name)
+{
+	struct stat buffer;
+	return (stat(name.c_str(), &buffer) == 0);
 }
 
 void generateYulAST(std::string yul, std::string filePath)
@@ -78,9 +79,11 @@ void replaceIdentifierName(std::string& srcString,
 
 SourceData::SourceData(std::string main_contract,
 					   std::string src,
-					   std::string filepath)
+					   std::string filepath,
+					   bool		   print_ir)
 {
 	m_src	   = src;
+	m_print_ir = print_ir;
 	m_srcSplit = splitStr(m_src);
 	this->removeComments();
 	m_filepath			  = filepath;
@@ -755,7 +758,12 @@ void SourceData::prepareSoliditySource(const char* sol_filepath)
 							  m_storageVars_str);
 
 	auto yul = prepass.cleanYul(yulIROptimized, m_mainContract);
-	// std::cout << yul << std::endl;
+	if (m_print_ir)
+	{
+		std::cout << yul << std::endl;
+		return;
+	}
+
 	// =============== Generate Yul JSON AST ===============
 	langutil::CharStream ir = langutil::CharStream(yul, m_modifiedSolFilepath);
 	std::variant<phaser::Program, langutil::ErrorList>

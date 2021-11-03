@@ -37,7 +37,8 @@ public:
 
 	SourceData(std::string main_contract,
 			   std::string src,
-			   std::string filepath);
+			   std::string filepath,
+			   bool		   print_ir);
 
 	CommandLineInterface	  getCli(char const* sol_filepath);
 	FunctionDefinition const* resolveFunctionCall(const ContractDefinition& c,
@@ -52,7 +53,7 @@ public:
 	bool		visit(FunctionDefinition const& _node) override;
 	bool		visit(FunctionCall const& _node) override;
 	bool		visit(VariableDeclaration const& _node) override;
-	bool 		visit(Identifier const& _node) override;
+	bool		visit(Identifier const& _node) override;
 	bool		visitNode(ASTNode const& node) override;
 	void		prepareSoliditySource(const char* sol_filepath);
 	void		setCompilerOptions(std::shared_ptr<CompilerStack> compiler);
@@ -84,11 +85,12 @@ public:
 	std::vector<std::string> m_contractNames;
 	std::vector<std::string> m_interfaceNames;
 	std::map<std::string, std::vector<std::string>> m_interfaces;
-	std::string				 m_filepath;
-	std::string				 m_modifiedSolFilepath;
-	std::string				 m_srcModified;
-	std::string				 m_src;
-	std::string				 m_srcOriginal;
+	std::string										m_filepath;
+	std::string										m_modifiedSolFilepath;
+	std::string										m_srcModified;
+	std::string										m_src;
+	std::string										m_srcOriginal;
+	bool											m_print_ir;
 
 	std::shared_ptr<CompilerStack>			m_compiler;
 	OptimiserSettings						m_compilerOptimizerSettings;

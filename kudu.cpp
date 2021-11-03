@@ -32,7 +32,7 @@ std::string slurpFile(std::string_view path)
 
 int main(int argc, char* argv[])
 {
-	if (argc != 3)
+	if (argc < 3 || argc > 4)
 	{
 		std::cerr << "USAGE: " << argv[0] << " SOLIDITY-FILE "
 				  << "MAIN-CONTRACT-NAME" << std::endl;
@@ -43,8 +43,11 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 
-	char const* sol_filepath	 = argv[1];
-	std::string main_contract	 = argv[2];
+	char const* sol_filepath  = argv[1];
+	std::string main_contract = argv[2];
+
+	bool print_ir = argc == 4 ? std::strncmp(argv[3], "--print-ir", 10) == 0
+							  : false;
 	std::string contractContents = slurpFile(sol_filepath);
 
 	// =============== Solidity pre-pass ===============
@@ -54,8 +57,12 @@ int main(int argc, char* argv[])
 	solidity::frontend::Parser		  parser{errorReporter,
 										 solidity::langutil::EVMVersion()};
 
-	auto	   sourceUnit = parser.parse(charStream);
-	SourceData sourceData(main_contract, contractContents, sol_filepath);
+	auto sourceUnit = parser.parse(charStream);
+
+	SourceData sourceData(main_contract,
+						  contractContents,
+						  sol_filepath,
+						  print_ir);
 
 	return 0;
 }
