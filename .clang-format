@@ -9,42 +9,7 @@
 # as the opening part (aka "dangling parenthesis", see https://reviews.llvm.org/D33029).
 
 Language: Cpp
-BasedOnStyle: LLVM
-AccessModifierOffset: -4
-AlignEscapedNewlinesLeft: true
-AlwaysBreakAfterReturnType: None
-AlwaysBreakTemplateDeclarations: Yes
-BinPackArguments: false
-BinPackParameters: false
-BreakBeforeBinaryOperators: All
-BreakBeforeBraces: Allman
-ColumnLimit: 80
-ContinuationIndentWidth: 4
-FixNamespaceComments: false
-IndentWidth: 4
-KeepEmptyLinesAtTheStartOfBlocks: false
-MaxEmptyLinesToKeep: 2
-PenaltyBreakAssignment: 20000
-PenaltyBreakBeforeFirstCallParameter: 0
-PointerAlignment: Left
-SpaceAfterCStyleCast: true
-SpaceAfterTemplateKeyword: false
-SpaceBeforeCtorInitializerColon: false
-SpaceBeforeInheritanceColon: false
-SpaceBeforeParens: ControlStatements
-SpaceBeforeRangeBasedForLoopColon: false
-TabWidth: 4
-UseTab: Always
-AlignConsecutiveMacros: 'true'
-AlignAfterOpenBracket: Align
-AlignOperands: 'true'
-AlignConsecutiveAssignments: 'true'
-AllowAllArgumentsOnNextLine: 'false'
-AlignConsecutiveDeclarations: 'true'
-AlignTrailingComments: 'true'
-FixNamespaceComments: 'true'
-NamespaceIndentation: None
-SortIncludes: 'true'
+BasedOnStyle: Google
 
 # Local Variables:
 # mode: yaml
