@@ -10,7 +10,7 @@
 
 #include <boost/algorithm/string.hpp>
 #include <boost/regex.hpp>
-#include <filesystem>
+#include <cstdio>
 #include <regex>
 
 #include "yul_prepass/YulCleaner.hpp"
@@ -37,14 +37,10 @@ void generateYulAST(std::string yul, std::string filePath) {
 }
 
 void deleteFile(std::string filePath) {
-  try {
-    if (std::filesystem::remove(filePath))
-      return;
-    else
-      std::cout << "file " << filePath << " not found.\n";
-  } catch (const std::filesystem::filesystem_error& err) {
-    std::cout << "filesystem error: " << err.what() << '\n';
-  }
+  if (remove(filePath.c_str()))
+    return;
+  else
+    std::cout << "file " << filePath << " not found.\n";
 }
 
 std::string joinSrcSplit(std::vector<std::string> srcSplit) {

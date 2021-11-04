@@ -8,7 +8,6 @@
 #include <libyul/Utilities.h>
 #include <tools/yulPhaser/Program.h>
 
-#include <filesystem>
 #include <fstream>
 
 YulVisitor::YulVisitor(std::string src, std::string warpConstructorSelector,
