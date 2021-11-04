@@ -37,7 +37,7 @@ void generateYulAST(std::string yul, std::string filePath) {
 }
 
 void deleteFile(std::string filePath) {
-  if (remove(filePath.c_str()))
+  if (!std::remove(filePath.c_str()))
     return;
   else
     std::cout << "file " << filePath << " not found.\n";
@@ -232,11 +232,11 @@ bool SourceData::visit(FunctionCall const& _node) {
   // std::string::npos)
   // 					{
   // 						for (auto funcName :
-  // interface.functions) 							if (callString.find(funcName) ==
-  // std::string::npos)
+  // interface.functions) 							if (callString.find(funcName)
+  // == std::string::npos)
   // 							{
-  // 								std::cout << "callString: " <<
-  // callString
+  // 								std::cout << "callString: "
+  // << callString
   // << " funcName:
   // "
   // << funcName << std::endl;
