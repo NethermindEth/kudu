@@ -170,7 +170,6 @@ bool SourceData::visit(Identifier const& _node) {
   // std::cout << _node.name() << std::endl;
   return visitNode(_node);
 }
-
 bool SourceData::visit(VariableDeclaration const& _node) {
   if (m_currentPass == PassType::ConstructorPass) {
     if (_node.isStateVariable()) {
@@ -182,11 +181,6 @@ bool SourceData::visit(VariableDeclaration const& _node) {
             "Warp does not support private storage variables yet. "
             "Please change storage variables to public");
       }
-    }
-    if (_node.type()->canonicalName() == "string") {
-      throw std::runtime_error(
-          "Warp does not support strings yet. String support will be "
-          "added in the near future");
     }
   }
   return visitNode(_node);
@@ -238,13 +232,15 @@ bool SourceData::visit(FunctionCall const& _node) {
   // std::string::npos)
   // 					{
   // 						for (auto funcName :
-  // interface.functions) 							if (callString.find(funcName) == std::string::npos)
+  // interface.functions) 							if (callString.find(funcName) ==
+  // std::string::npos)
   // 							{
-  // 								std::cout << "callString: " << callString
+  // 								std::cout << "callString: " <<
+  // callString
   // << " funcName:
   // "
-  // << funcName << std::endl; 								shouldPrint
-  // = true;
+  // << funcName << std::endl;
+  // shouldPrint = true;
   // 							}
   // 							else
   // 								shouldPrint =
