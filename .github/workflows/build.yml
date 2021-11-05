@@ -33,7 +33,6 @@ jobs:
       - name: Cache build (ubuntu)
         uses: actions/cache@v2
         with:
-          # npm cache files are stored in `~/.npm` on Linux/macOS
           path: build
           key: ubuntu-build-${{ secrets.CACHE_ID }}-${{ steps.cache-id.outputs.timestamp }}
           restore-keys: |
@@ -49,8 +48,8 @@ jobs:
           name: kudu-ubuntu
           path: build/kudu
 
-  build-macos:
-    runs-on: macos-latest
+  build-macos-10-15:
+    runs-on: macos-10.15
 
     steps:
       - uses: actions/checkout@v2
@@ -65,9 +64,9 @@ jobs:
         with:
           # npm cache files are stored in `~/.npm` on Linux/macOS
           path: build
-          key: macos-build-${{ secrets.CACHE_ID }}-${{ steps.cache-id.outputs.timestamp }}
+          key: macos-10-15-build-${{ secrets.CACHE_ID }}-${{ steps.cache-id.outputs.timestamp }}
           restore-keys: |
-            macos-build-${{ secrets.CACHE_ID }}-
+            macos-10-15-build-${{ secrets.CACHE_ID }}-
 
       - name: Install dependencies
         run: brew install cmake boost icu4c
@@ -79,6 +78,36 @@ jobs:
       - name: Upload kudu artifact
         uses: actions/upload-artifact@v2
         with:
-          name: kudu-macos
+          name: kudu-macos-10-15
           path: build/kudu
 
+  build-macos-11:
+    runs-on: macos-11
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Gen Cache Id
+        run: |
+          echo "::set-output name=timestamp::$(date '+%s')"
+        id: cache-id
+
+      - name: Cache build (macos)
+        uses: actions/cache@v2
+        with:
+          path: build
+          key: macos-11-build-${{ secrets.CACHE_ID }}-${{ steps.cache-id.outputs.timestamp }}
+          restore-keys: |
+            macos-11--build-${{ secrets.CACHE_ID }}-
+
+      - name: Install dependencies
+        run: brew install cmake boost icu4c
+
+      - name: Build kudu
+        run: sh build.sh
+
+      - name: Upload kudu artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: kudu-macos-11
+          path: build/kudu
