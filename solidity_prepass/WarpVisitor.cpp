@@ -176,11 +176,6 @@ bool SourceData::visit(VariableDeclaration const& _node) {
       if (_node.mutability() == VariableDeclaration::Mutability::Immutable)
         throw std::runtime_error(
             "Warp does not support immutable storage variables yet. ");
-      if (_node.visibility() == Visibility::Private) {
-        throw std::runtime_error(
-            "Warp does not support private storage variables yet. "
-            "Please change storage variables to public");
-      }
     }
   }
   return visitNode(_node);
@@ -223,32 +218,6 @@ bool SourceData::visit(FunctionDefinition const& _node) {
 }
 
 bool SourceData::visit(FunctionCall const& _node) {
-  // bool shouldPrint = false;
-  // std::for_each(m_interfaces.begin(),
-  // 				m_interfaces.end(),
-  // 				[&](const _Interface& interface)
-  // 				{
-  // 					if (callString.find(interface.name) !=
-  // std::string::npos)
-  // 					{
-  // 						for (auto funcName :
-  // interface.functions) 							if (callString.find(funcName)
-  // == std::string::npos)
-  // 							{
-  // 								std::cout << "callString: "
-  // << callString
-  // << " funcName:
-  // "
-  // << funcName << std::endl;
-  // shouldPrint = true;
-  // 							}
-  // 							else
-  // 								shouldPrint =
-  // false;
-  // 					}
-  // 				});
-  // if (shouldPrint)
-  // 	std::cout << callString << std::endl;
   if (m_currentPass == PassType::FunctionCallPass) {
     auto funcDef =
         resolveFunctionCall(m_compiler->contractDefinition(
@@ -639,6 +608,5 @@ void SourceData::prepareSoliditySource(const char* sol_filepath) {
   yulVisitor(program.ast());
   generateYulAST(yulVisitor.m_src, "YUL_PASS");
 
-  // deletFile(m_modifiedSolFilepath);
   if (fileExists("YUL_PASS")) deleteFile("YUL_PASS");
 }
