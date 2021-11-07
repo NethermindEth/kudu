@@ -10,7 +10,8 @@
 
 Language: Cpp
 BasedOnStyle: Google
-
+TabWidth: '4'
+IndentWidth: 4
 # Local Variables:
 # mode: yaml
 # End:
