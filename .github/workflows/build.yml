@@ -41,7 +41,6 @@ jobs:
 
       - name: Build kudu
         run: | 
-          rm -rf build
           CXX=g++-11 CC=gcc-11 sh build.sh
 
       - name: Upload kudu artifact
@@ -75,7 +74,6 @@ jobs:
 
       - name: Build kudu
         run: |
-          rm -rf build
           sh build.sh
 
       - name: Upload kudu artifact
