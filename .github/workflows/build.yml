@@ -40,7 +40,9 @@ jobs:
             ubuntu-build-${{ secrets.CACHE_ID }}-
 
       - name: Build kudu
-        run: CXX=g++-11 CC=gcc-11 sh build.sh
+        run: | 
+          rm -rf build
+          CXX=g++-11 CC=gcc-11 sh build.sh
 
       - name: Upload kudu artifact
         uses: actions/upload-artifact@v2
@@ -72,7 +74,9 @@ jobs:
         run: brew install cmake boost icu4c
 
       - name: Build kudu
-        run: sh build.sh
+        run: |
+          rm -rf build
+          sh build.sh
 
       - name: Upload kudu artifact
         uses: actions/upload-artifact@v2

@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
+include(cmake/clang-format-tool.cmake)
 
 project(warp_solidity
         VERSION 0.0.1)
@@ -12,7 +13,7 @@ if (SANITIZE)
   add_link_options(-fsanitize=address -fsanitize=leak -fsanitize=undefined)
 endif()
 
-add_compile_options(-Wall -Wextra -pedantic -Werror -O3 -Wno-unused-parameter)
+add_compile_options(-Wall -Wextra -pedantic -Werror -O3 -Wno-unused-parameter -Wno-newline-eof)
 
 find_package(Boost CONFIG REQUIRED COMPONENTS regex)
 include_directories(${Boost_INCLUDE_DIRS})
@@ -22,8 +23,8 @@ include(FetchContent)
 FetchContent_Declare(
         solidity
 
-        GIT_REPOSITORY "https://github.com/NethermindEth/solidity.git"
-        GIT_TAG "54781f64ee0336fd264d62942361f9acf5f30276"
+        GIT_REPOSITORY "https://github.com/NethermindEth/nether_solc.git"
+        GIT_TAG "3b32163d9b954d246bd16d5d14b2bad7d548d7c4"
         )
 
 if (NOT solidity_POPULATED)
@@ -100,10 +101,10 @@ target_include_directories(full-solidity SYSTEM
 add_dependencies(full-solidity solidity-project)
 
 
-set (WARP_LIBS common/json.hpp common/library.hpp common/library.cpp 
-        yul_prepass/YulVisitor.hpp yul_prepass/YulVisitor.cpp
-        yul_prepass/YulCleaner.hpp yul_prepass/YulCleaner.cpp
-        solidity_prepass/WarpVisitor.hpp solidity_prepass/WarpVisitor.cpp)
+set (WARP_LIBS libwarp/common/json.hpp libwarp/common/library.hpp libwarp/common/library.cpp 
+        libwarp/yul_prepass/YulVisitor.hpp libwarp/yul_prepass/YulVisitor.cpp
+        libwarp/yul_prepass/YulCleaner.hpp libwarp/yul_prepass/YulCleaner.cpp
+        libwarp/solidity_prepass/WarpVisitor.hpp libwarp/solidity_prepass/WarpVisitor.cpp)
 
 add_library(warp-solidity ${WARP_LIBS})
 add_dependencies(warp-solidity solidity-project)
