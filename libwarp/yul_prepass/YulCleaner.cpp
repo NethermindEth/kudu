@@ -263,29 +263,6 @@ bool YulCleaner::isExtCodeSizeCheck(std::array<std::string, 6> lines) {
             lines[5].find("}") != std::string::npos);
 }
 
-std::vector<std::string> YulCleaner::removeExtCodeSizeCheck(
-    std::vector<std::string> yul) {
-    size_t increment = 1;
-    std::vector<std::string> result;
-    for (size_t i = 0; i < yul.size(); i += increment) {
-        if (i + 6 < yul.size()) {
-            std::array<std::string, 6> seq = {yul[i],     yul[i + 1],
-                                              yul[i + 2], yul[i + 3],
-                                              yul[i + 4], yul[i + 5]};
-            if (isExtCodeSizeCheck(seq)) {
-                increment = 6;
-            } else {
-                result.emplace_back(yul[i]);
-                increment = 1;
-            }
-        } else {
-            increment = 1;
-            result.emplace_back(yul[i]);
-        }
-    }
-    return result;
-}
-
 std::string YulCleaner::addEntryFunc(std::vector<std::string> entrySeq,
                                      std::vector<std::string> cleanCode) {
     std::string yulStr;
@@ -301,7 +278,6 @@ std::string YulCleaner::addEntryFunc(std::vector<std::string> entrySeq,
 
 std::string YulCleaner::cleanYul(std::string code, std::string& main_contract) {
     auto runtimeYul = getRuntimeYul(splitStr(code));
-    runtimeYul = removeExtCodeSizeCheck(runtimeYul);
     std::vector<std::string> clean;
     std::vector<std::string> entry;
     FinalizedYul finalYul = removeDeploymentCode(runtimeYul);
