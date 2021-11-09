@@ -37,6 +37,9 @@ include(${solidity_SOURCE_DIR}/cmake/range-v3.cmake)
 
 include(ExternalProject)
 
+include(ProcessorCount)
+ProcessorCount(NPROCS)
+
 ExternalProject_Add(
         solidity-project
 
@@ -49,7 +52,7 @@ ExternalProject_Add(
             -DUSE_Z3=OFF -DUSE_CVC4=OFF
 
         BUILD_COMMAND
-            make -j20
+            make -j${NPROCS}
 
         INSTALL_COMMAND ""
         )
@@ -101,7 +104,7 @@ target_include_directories(full-solidity SYSTEM
 add_dependencies(full-solidity solidity-project)
 
 
-set (WARP_LIBS libwarp/common/json.hpp libwarp/common/library.hpp libwarp/common/library.cpp 
+set (WARP_LIBS libwarp/common/json.hpp libwarp/common/library.hpp libwarp/common/library.cpp
         libwarp/yul_prepass/YulVisitor.hpp libwarp/yul_prepass/YulVisitor.cpp
         libwarp/yul_prepass/YulCleaner.hpp libwarp/yul_prepass/YulCleaner.cpp
         libwarp/solidity_prepass/WarpVisitor.hpp libwarp/solidity_prepass/WarpVisitor.cpp)
