@@ -102,8 +102,10 @@ add_dependencies(full-solidity solidity-project)
 
 
 set (WARP_LIBS libwarp/common/json.hpp libwarp/common/library.hpp libwarp/common/library.cpp 
-        libwarp/yul_prepass/YulVisitor.hpp libwarp/yul_prepass/YulVisitor.cpp
+        libwarp/solidity_prepass/SolidityModifier.hpp libwarp/solidity_prepass/SolidityModifier.cpp
+        libwarp/solidity_prepass/SolidityModifierState.cpp libwarp/solidity_prepass/SolidityModifierState.hpp
         libwarp/yul_prepass/YulCleaner.hpp libwarp/yul_prepass/YulCleaner.cpp
+        libwarp/yul_prepass/YulVisitor.hpp libwarp/yul_prepass/YulVisitor.cpp
         libwarp/solidity_prepass/WarpVisitor.hpp libwarp/solidity_prepass/WarpVisitor.cpp)
 
 add_library(warp-solidity ${WARP_LIBS})

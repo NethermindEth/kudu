@@ -1,9 +1,11 @@
 #include "WarpVisitor.hpp"
 
 #include <liblangutil/CharStreamProvider.h>
+#include <liblangutil/EVMVersion.h>
 #include <liblangutil/Exceptions.h>
 #include <liblangutil/SourceReferenceFormatter.h>
 #include <libsolidity/codegen/ir/IRGenerator.h>
+#include <libsolidity/interface/DebugSettings.h>
 #include <libsolutil/IndentedWriter.h>
 #include <libsolutil/Keccak256.h>
 #include <libyul/AsmJsonConverter.h>
@@ -17,34 +19,6 @@
 #include "libwarp/yul_prepass/YulCleaner.hpp"
 #include "libwarp/yul_prepass/YulVisitor.hpp"
 
-inline bool fileExists(const std::string& name) {
-    struct stat buffer;
-    return (stat(name.c_str(), &buffer) == 0);
-}
-
-void generateYulAST(std::string yul, std::string filePath) {
-    langutil::CharStream ir = langutil::CharStream(yul, filePath);
-    std::variant<phaser::Program, langutil::ErrorList> maybeProgram =
-        phaser::Program::load(ir);
-
-    if (auto* errorList = std::get_if<langutil::ErrorList>(&maybeProgram)) {
-        langutil::SingletonCharStreamProvider streamProvider{ir};
-        langutil::SourceReferenceFormatter{std::cerr, streamProvider, true,
-                                           false}
-            .printErrorInformation(*errorList);
-        std::cerr << std::endl;
-    }
-    auto program = std::get<phaser::Program>(maybeProgram);
-    std::cout << program.toJson() << std::endl;
-}
-
-std::string joinSrcSplit(std::vector<std::string> srcSplit) {
-    std::string newSrc;
-    std::for_each(srcSplit.begin(), srcSplit.end(),
-                  [&newSrc](std::string line) { newSrc += line + "\n"; });
-    return newSrc;
-}
-
 void replaceIdentifierName(std::string& srcString, std::string identifier,
                            std::string newIdentifier) {
     std::ostringstream regexStr;
@@ -56,54 +30,15 @@ void replaceIdentifierName(std::string& srcString, std::string identifier,
 
 WarpVisitor::WarpVisitor(std::string main_contract, std::string src,
                          std::string filepath, bool print_ir) {
-    m_src = src;
-    m_print_ir = print_ir;
-    m_srcSplit = splitStr(m_src);
-    this->removeComments();
-    m_filepath = filepath;
-    m_mainContract = main_contract;
-    m_modifiedSolFilepath =
+    std::string modifiedSolFilepath =
         std::string(filepath.begin(), filepath.end() - 4) + "_marked.sol";
-    this->writeModifiedSolidity();
-    this->prepareSoliditySource(m_modifiedSolFilepath.c_str());
-}
-
-int getEndOfMultiLineComment(std::vector<std::string> lines, int start) {
-    for (size_t i = start; i < lines.size(); i++) {
-        boost::trim(lines[i]);
-        if (boost::starts_with(lines[i], "*/")) return i;
-    }
-    throw std::runtime_error("Failed to find end of multi line comment.");
-    return -1;
-}
-
-void WarpVisitor::removeComments() {
-    std::vector<std::string> newSplit;
-    int jump = 1;
-    for (size_t i = 0; i < m_srcSplit.size(); i += jump) {
-        if (i > m_srcSplit.size()) break;
-        auto lineCopy = m_srcSplit[i];
-        boost::trim(lineCopy);
-        if (boost::starts_with(lineCopy, "//")) {
-            jump = 1;
-        } else if (boost::starts_with(lineCopy, "/*")) {
-            if (lineCopy.find("*/") == std::string::npos) {
-                auto end = getEndOfMultiLineComment(m_srcSplit, i);
-                jump = end + 1 - (i);
-                if (i + jump > m_srcSplit.size()) break;
-            } else {
-                jump = 1;
-            }
-        } else {
-            jump = 1;
-            newSplit.emplace_back(m_srcSplit[i]);
-        }
-    }
-    std::string newSrc;
-    std::for_each(newSplit.begin(), newSplit.end(),
-                  [&newSrc](std::string line) { newSrc += line + "\n"; });
-    this->m_srcSplit = newSplit;
-    this->m_src = newSrc;
+    this->m_solModifier.src(src)
+        .modifiedSolFilePath(modifiedSolFilepath)
+        .consolidateImports()
+        .removeComments()
+        .writeModifiedSolidity();
+    m_print_ir = print_ir;
+    m_mainContract = main_contract;
 }
 
 bool WarpVisitor::hasDynamicArgs(std::string params) {
@@ -129,41 +64,8 @@ bool WarpVisitor::isPublic(Visibility _visibility) {
     }
 }
 
-void WarpVisitor::writeModifiedSolidity() {
-    std::string solStr;
-    for (auto line : m_srcSplit) solStr += line + "\n";
-    writeFile(m_modifiedSolFilepath, solStr);
-}
+bool WarpVisitor::visit(Identifier const& _node) { return visitNode(_node); }
 
-CommandLineInterface WarpVisitor::getCli(char const* sol_filepath) {
-    std::string yulOptimiserSteps = OptimiserSettings::DefaultYulOptimiserSteps;
-    std::erase(yulOptimiserSteps, 'i');  // remove FullInliner
-    std::erase(yulOptimiserSteps, 'F');
-    std::erase(yulOptimiserSteps, 'v');
-    yulOptimiserSteps += "x";  // that flattens function calls: only one
-    // function call per statement is allowed
-    constexpr int solc_argc = 2;
-    char const* solc_argv[solc_argc] = {
-        "--bin",
-        sol_filepath,
-    };
-
-    std::istringstream sin;  // never used, but the CLI requires it
-    std::ostringstream sout;
-    CommandLineInterface cli{sin, sout, std::cerr};
-    if (not cli.parseArguments(solc_argc, solc_argv))
-        BOOST_THROW_EXCEPTION(
-            std::runtime_error{"solc CLI failed to parse arguments"});
-    if (not cli.readInputFiles())
-        BOOST_THROW_EXCEPTION(
-            std::runtime_error{"solc failed to read input files"});
-
-    return cli;
-}
-bool WarpVisitor::visit(Identifier const& _node) {
-    // std::cout << _node.name() << std::endl;
-    return visitNode(_node);
-}
 bool WarpVisitor::visit(VariableDeclaration const& _node) {
     if (m_currentPass == PassType::ConstructorPass) {
         if (_node.isStateVariable()) {
@@ -179,25 +81,28 @@ bool WarpVisitor::visit(FunctionDefinition const& _node) {
     if (m_currentPass == PassType::FunctionDefinitionPass) {
         std::string sig;
         if (not _node.isImplemented()) {
-            sig = std::string(m_srcOriginal.begin() + _node.location().start,
-                              m_srcOriginal.begin() + _node.location().end);
+            sig = std::string(
+                m_solState->srcOriginal.begin() + _node.location().start,
+                m_solState->srcOriginal.begin() + _node.location().end);
         } else {
             sig = std::string(
-                m_srcOriginal.begin() + _node.location().start,
-                m_srcOriginal.begin() + _node.body().location().start + 1);
+                m_solState->srcOriginal.begin() + _node.location().start,
+                m_solState->srcOriginal.begin() +
+                    _node.body().location().start + 1);
         }
         if (_node.isPartOfExternalInterface()) {
             int paramsStart = _node.parameterList().location().start + 1;
             int paramsEnd = _node.parameterList().location().end - 1;
-            auto params = std::string(m_srcOriginal.begin() + paramsStart,
-                                      m_srcOriginal.begin() + paramsEnd);
-            if (not contains_warp(m_storageVars_str, _node.name()) and
+            auto params =
+                std::string(m_solState->srcOriginal.begin() + paramsStart,
+                            m_solState->srcOriginal.begin() + paramsEnd);
+            if (not contains_warp(m_solState->storageVars_str, _node.name()) and
                 hasDynamicArgs(params)) {
                 auto markedName = _node.name() + "_dynArgs";
                 auto markedSig =
                     "function " + markedName +
                     std::string(sig.begin() + sig.find('('), sig.end()) + "\n";
-                boost::replace_all(m_src, sig, markedSig);
+                boost::replace_all(m_solState->src, sig, markedSig);
                 m_dynArgFunctions.names.emplace_back(_node.name());
                 std::vector<Type const*> params;
                 for (auto param : _node.parameters()) {
@@ -206,7 +111,7 @@ bool WarpVisitor::visit(FunctionDefinition const& _node) {
                 m_dynArgFunctions.parameters.emplace_back(params);
                 m_dynArgFunctions.selectors.emplace_back(
                     _node.externalIdentifierHex());
-                m_srcSplit = splitStr(m_src);
+                m_solState->srcSplit = splitStr(m_solState->src);
             }
         }
     }
@@ -216,8 +121,8 @@ bool WarpVisitor::visit(FunctionDefinition const& _node) {
 bool WarpVisitor::visit(FunctionCall const& _node) {
     if (m_currentPass == PassType::FunctionCallPass) {
         auto funcDef = resolveFunctionCall(
-            m_compiler->contractDefinition(m_modifiedSolFilepath + ":" +
-                                           m_mainContract),
+            m_solState->compiler->contractDefinition(
+                m_solModifier.m_modifiedSolFilePath + ":" + m_mainContract),
             _node);
         if (funcDef != nullptr) {
             auto selector = funcDef->externalIdentifierHex();
@@ -229,17 +134,17 @@ bool WarpVisitor::visit(FunctionCall const& _node) {
                           });
             if (found == 1) {
                 auto line = std::string(
-                    m_srcOriginal.begin() + _node.location().start,
-                    m_srcOriginal.begin() + _node.location().end + 1);
+                    m_solState->srcOriginal.begin() + _node.location().start,
+                    m_solState->srcOriginal.begin() + _node.location().end + 1);
 
-                auto call =
-                    std::string(m_srcOriginal.begin() + _node.location().start,
-                                m_srcOriginal.begin() + _node.location().end);
+                auto call = std::string(
+                    m_solState->srcOriginal.begin() + _node.location().start,
+                    m_solState->srcOriginal.begin() + _node.location().end);
                 auto callMarked = call;
                 auto dynName = funcDef->name() + "_dynArgs";
                 replaceIdentifierName(callMarked, funcDef->name(), dynName);
-                boost::replace_all(m_src, call, callMarked);
-                m_srcSplit = splitStr(m_src);
+                boost::replace_all(m_solState->src, call, callMarked);
+                m_solState->srcSplit = splitStr(m_solState->src);
             }
         }
     }
@@ -249,7 +154,7 @@ bool WarpVisitor::visit(FunctionCall const& _node) {
 FunctionDefinition const* WarpVisitor::insideWhichFunction(
     langutil::SourceLocation const& location) {
     FunctionDefinition const* dummy;
-    for (auto func : m_definedFunctions) {
+    for (auto func : m_solState->definedFunctions) {
         if (func->location().contains(location)) {
             return func;
         }
@@ -276,17 +181,6 @@ FunctionDefinition const* WarpVisitor::resolveFunctionCall(
     return ASTNode::resolveFunctionCall(f, &c);
 }
 
-bool WarpVisitor::visit(ImportDirective const& _node) {
-    if (m_currentPass == PassType::ImportPass) {
-        std::string importStr =
-            std::string(m_srcOriginal.begin() + _node.location().start,
-                        m_srcOriginal.begin() + _node.location().end);
-        m_importsSources = m_importsSources + slurpFile(_node.path());
-        boost::replace_all(m_src, importStr, "");
-    }
-    return visitNode(_node);
-}
-
 void WarpVisitor::getInheritedConstructorCalls(
     std::vector<ASTPointer<ModifierInvocation>> const& modifierCalls) {
     if (modifierCalls.size() == 0)
@@ -299,9 +193,9 @@ void WarpVisitor::getInheritedConstructorCalls(
             }
             auto modDeclr = mod->name().annotation().referencedDeclaration;
             auto fullyQualifiedName =
-                m_modifiedSolFilepath + ":" + modDeclr->name();
+                m_solModifier.m_modifiedSolFilePath + ":" + modDeclr->name();
             if (modDeclr and
-                contains_warp(m_contractNames, fullyQualifiedName)) {
+                contains_warp(m_solState->contractNames, fullyQualifiedName)) {
                 std::vector<std::string> callArguments;
                 std::for_each(
                     modifierCallArgs.begin(), modifierCallArgs.end(),
@@ -333,7 +227,7 @@ void WarpVisitor::getInheritedConstructorCalls(
                         }
                     });
                 auto constructorDef =
-                    m_compiler->contractDefinition(modDeclr->name())
+                    m_solState->compiler->contractDefinition(modDeclr->name())
                         .constructor();
                 if (constructorDef) {
                     auto params = constructorDef->parameters();
@@ -341,17 +235,18 @@ void WarpVisitor::getInheritedConstructorCalls(
                         constructorDef->parameterList().location().start;
                     auto paramsEnd =
                         constructorDef->parameterList().location().end;
-                    auto paramsStr =
-                        std::string(m_srcOriginal.begin() + paramsStart,
-                                    m_srcOriginal.begin() + paramsEnd);
+                    auto paramsStr = std::string(
+                        m_solState->srcOriginal.begin() + paramsStart,
+                        m_solState->srcOriginal.begin() + paramsEnd);
                     auto bodyStart = constructorDef->body().location().start;
                     auto bodyEnd = constructorDef->body().location().end;
-                    auto body = std::string(m_srcOriginal.begin() + bodyStart,
-                                            m_srcOriginal.begin() + bodyEnd);
+                    auto body =
+                        std::string(m_solState->srcOriginal.begin() + bodyStart,
+                                    m_solState->srcOriginal.begin() + bodyEnd);
                     if (body != "{}") {
-                        auto bodyOnly =
-                            std::string(m_srcOriginal.begin() + bodyStart + 1,
-                                        m_srcOriginal.begin() + bodyEnd - 1);
+                        auto bodyOnly = std::string(
+                            m_solState->srcOriginal.begin() + bodyStart + 1,
+                            m_solState->srcOriginal.begin() + bodyEnd - 1);
                         bool eq = params.size() == callArguments.size();
                         solAssert(eq,
                                   "WarpVisitor.cpp:376 -> parameter.size() != "
@@ -372,19 +267,20 @@ void WarpVisitor::getInheritedConstructorCalls(
 
 void WarpVisitor::generateWarpConstructor() {
     FunctionDefinition const* constructor =
-        m_compiler->contractDefinition(m_modifiedContractName).constructor();
+        m_solState->compiler->contractDefinition(m_modifiedContractName)
+            .constructor();
     if (not constructor) {
         m_willGenerateConstructor = false;
         return;
     }
     m_willGenerateConstructor = true;
-    auto constructorStr =
-        std::string(m_srcOriginal.begin() + constructor->location().start,
-                    m_srcOriginal.begin() + constructor->location().end);
+    auto constructorStr = std::string(
+        m_solState->srcOriginal.begin() + constructor->location().start,
+        m_solState->srcOriginal.begin() + constructor->location().end);
     auto paramsStart = constructor->parameterList().location().start;
     auto paramsEnd = constructor->parameterList().location().end;
-    auto params = std::string(m_srcOriginal.begin() + paramsStart,
-                              m_srcOriginal.begin() + paramsEnd);
+    auto params = std::string(m_solState->srcOriginal.begin() + paramsStart,
+                              m_solState->srcOriginal.begin() + paramsEnd);
     if (params.find(" calldata ") != std::string::npos or
         params.find(" memory ") != std::string::npos) {
         m_warpConstructor = "    function __warp_ctorHelper_DynArgs";
@@ -411,12 +307,13 @@ void WarpVisitor::generateWarpConstructor() {
                    .hex();
     auto bodyStart = constructor->body().location().start;
     auto bodyEnd = constructor->body().location().end;
-    auto body = std::string(m_srcOriginal.begin() + bodyStart,
-                            m_srcOriginal.begin() + bodyEnd);
+    auto body = std::string(m_solState->srcOriginal.begin() + bodyStart,
+                            m_solState->srcOriginal.begin() + bodyEnd);
     m_warpConstructor += params + " public {\n";
     if (body != "{}") {
-        auto bodyOnly = std::string(m_srcOriginal.begin() + bodyStart + 1,
-                                    m_srcOriginal.begin() + bodyEnd - 1);
+        auto bodyOnly =
+            std::string(m_solState->srcOriginal.begin() + bodyStart + 1,
+                        m_solState->srcOriginal.begin() + bodyEnd - 1);
         m_warpConstructor += bodyOnly;
     }
     getInheritedConstructorCalls(constructor->modifiers());
@@ -424,203 +321,59 @@ void WarpVisitor::generateWarpConstructor() {
     std::vector<std::string> newSrcSplit;
     bool inMainContract = false;
     std::string check = "contract " + m_mainContract;
-    for (size_t i = 0; i < m_srcSplit.size(); ++i) {
-        if (m_srcSplit[i].find(check) != std::string::npos) {
+    for (size_t i = 0; i < m_solState->srcSplit.size(); ++i) {
+        if (m_solState->srcSplit[i].find(check) != std::string::npos) {
             inMainContract = true;
         }
-        if (m_srcSplit[i].find(" constructor(") != std::string::npos and
+        if (m_solState->srcSplit[i].find(" constructor(") !=
+                std::string::npos and
             inMainContract) {
             newSrcSplit.emplace_back(m_warpConstructor);
         }
-        newSrcSplit.emplace_back(m_srcSplit[i]);
+        newSrcSplit.emplace_back(m_solState->srcSplit[i]);
     }
-    m_srcSplit = newSrcSplit;
+    m_solState->srcSplit = newSrcSplit;
 }
 
-void WarpVisitor::setCompilerOptions(std::shared_ptr<CompilerStack> compiler) {
-    if (m_options.metadata.literalSources)
-        compiler->useMetadataLiteralSources(true);
-    compiler->setMetadataHash(m_options.metadata.hash);
-    if (m_options.modelChecker.initialize)
-        compiler->setModelCheckerSettings(m_options.modelChecker.settings);
-    compiler->setRemappings(m_options.input.remappings);
-    compiler->setLibraries(m_options.linker.libraries);
-    compiler->setViaIR(m_options.output.experimentalViaIR);
-    compiler->setEVMVersion(m_options.output.evmVersion);
-    compiler->setRevertStringBehaviour(m_options.output.revertStrings);
-    compiler->enableIRGeneration(m_options.compiler.outputs.ir ||
-                                 m_options.compiler.outputs.irOptimized);
-    m_compiler->enableEvmBytecodeGeneration(
-        m_options.compiler.estimateGas || m_options.compiler.outputs.asm_ ||
-        m_options.compiler.outputs.asmJson ||
-        m_options.compiler.outputs.opcodes ||
-        m_options.compiler.outputs.binary ||
-        m_options.compiler.outputs.binaryRuntime ||
-        (m_options.compiler.combinedJsonRequests &&
-         (m_options.compiler.combinedJsonRequests->binary ||
-          m_options.compiler.combinedJsonRequests->binaryRuntime ||
-          m_options.compiler.combinedJsonRequests->opcodes ||
-          m_options.compiler.combinedJsonRequests->asm_ ||
-          m_options.compiler.combinedJsonRequests->generatedSources ||
-          m_options.compiler.combinedJsonRequests->generatedSourcesRuntime ||
-          m_options.compiler.combinedJsonRequests->srcMap ||
-          m_options.compiler.combinedJsonRequests->srcMapRuntime ||
-          m_options.compiler.combinedJsonRequests->funDebug ||
-          m_options.compiler.combinedJsonRequests->funDebugRuntime)));
-    compiler->enableEwasmGeneration(m_options.compiler.outputs.ewasm);
-
-    this->setYulOptimizerSettings();
-
-    this->m_compiler->setOptimiserSettings(m_compilerOptimizerSettings);
-    this->m_compiler->setSources(m_fileReader.sourceCodes());
-    this->m_compiler->setParserErrorRecovery(m_options.input.errorRecovery);
+WarpVisitor& WarpVisitor::constrcutorPass(const char* solFilepath) {
+    m_currentPass = PassType::ConstructorPass;
+    m_solState->compiler->ast(m_solState->modifiedSolFilePath).accept(*this);
+    generateWarpConstructor();
+    m_solState->refresh();
+    return *this;
 }
 
-void WarpVisitor::setYulOptimizerSettings() {
-    std::string yulOptimiserSteps = OptimiserSettings::DefaultYulOptimiserSteps;
-    std::erase(yulOptimiserSteps, 'i');  // remove FullInliner
-    std::erase(yulOptimiserSteps, 'F');
-    std::erase(yulOptimiserSteps, 'v');
-    yulOptimiserSteps += "x";  // that flattens function calls: only one
-
-    this->m_compilerOptimizerSettings = OptimiserSettings::full();
-    this->m_compilerOptimizerSettings.yulOptimiserSteps = yulOptimiserSteps;
-    this->m_compilerOptimizerSettings.expectedExecutionsPerDeployment = 1;
-}
-
-void WarpVisitor::dynFuncArgsPass(const char* solFilepath) {
-    auto cli = getCli(solFilepath);
-    auto paths = cli.options().input.paths;
-
-    this->m_fileReader = std::move(cli.fileReader());
-    this->m_compiler = std::make_shared<CompilerStack>(m_fileReader.reader());
-    this->m_options = cli.options();
-    this->setCompilerOptions(m_compiler);
-    this->m_compiler->parse();
-    this->m_compiler->analyze();
-    this->m_compiler->compile();
-
-    this->refreshStateAfterModification();
-
-    this->m_srcOriginal = m_src;
-    this->m_currentPass = PassType::FunctionDefinitionPass;
-    this->m_compiler->ast(solFilepath).accept(*this);
-    this->m_src = joinSrcSplit(this->m_srcSplit);
-
-    this->m_currentPass = PassType::FunctionCallPass;
-    this->m_compiler->ast(m_modifiedSolFilepath).accept(*this);
-
-    this->m_src = joinSrcSplit(this->m_srcSplit);
-    this->writeModifiedSolidity();
-}
-
-void WarpVisitor::importPass(const char* solFilepath) {
-    auto cli = getCli(solFilepath);
-    auto paths = cli.options().input.paths;
-
-    this->m_fileReader = std::move(cli.fileReader());
-    this->m_compiler = std::make_shared<CompilerStack>(m_fileReader.reader());
-    this->m_options = cli.options();
-    this->setCompilerOptions(m_compiler);
-    this->m_compiler->parse();
-    this->m_compiler->analyze();
-    this->m_compiler->compile();
-    this->refreshStateAfterModification();
-    this->m_srcOriginal = m_src;
-    m_currentPass = PassType::ImportPass;
-    this->m_compiler->ast(m_modifiedSolFilepath).accept(*this);
-    this->m_src = this->m_importsSources + this->m_src;
-    this->writeModifiedSolidity();
-    this->refreshStateAfterModification();
-}
-
-void WarpVisitor::constrcutorPass(const char* solFilepath) {
-    this->refreshStateAfterModification();
-    this->m_currentPass = PassType::ConstructorPass;
-    this->m_srcOriginal = m_src;
-    this->m_compiler->ast(m_modifiedSolFilepath).accept(*this);
-    this->generateWarpConstructor();
-    this->m_src = joinSrcSplit(this->m_srcSplit);
-    this->writeModifiedSolidity();
-    this->refreshStateAfterModification();
-}
-
-void WarpVisitor::refreshStateAfterModification() {
-    this->m_compiler->reset(true);
-    auto newCli = getCli(m_modifiedSolFilepath.c_str());
-    auto paths = newCli.options().input.paths;
-
-    this->m_fileReader = std::move(newCli.fileReader());
-    this->m_options = newCli.options();
-    this->setCompilerOptions(m_compiler);
-    this->m_compiler->parse();
-    this->m_compiler->analyze();
-    this->m_compiler->compile();
-    this->m_definedFunctions.clear();
-    this->m_storageVars_str.clear();
-    this->m_srcOriginal = m_src;
-    m_contractNames = m_compiler->contractNames();
-    m_interfaceNames.clear();
-    m_storageVars_str.clear();
-    m_interfaces.clear();
-    m_definedFunctions = std::vector<FunctionDefinition const*>();
-    for (auto name : m_contractNames) {
-        auto unQualifiedName =
-            std::string(name.begin() + name.find(":") + 1, name.end());
-        m_interfaceNames.emplace_back(unQualifiedName);
-        std::vector<std::string> definedFuncs;
-        for (auto var :
-             this->m_compiler->contractDefinition(name).stateVariables()) {
-            this->m_storageVars_str.emplace_back(var->name());
-        }
-        for (auto func :
-             this->m_compiler->contractDefinition(name).definedFunctions()) {
-            this->m_definedFunctions.emplace_back(func);
-            definedFuncs.emplace_back(func->name());
-        }
-        if (this->m_compiler->contractDefinition(name).isInterface()) {
-            m_interfaces[unQualifiedName] = definedFuncs;
-        }
-    }
-}
-
-void WarpVisitor::prepareSoliditySource(const char* sol_filepath) {
-    std::ostringstream modifiedContractName;
-    modifiedContractName << m_modifiedSolFilepath << ":" << m_mainContract;
-    m_modifiedContractName = modifiedContractName.str();
-    // Removing this optimization for now, as we are adding all functions
-    // to fun_ENTRY_POINT for warped->warped contract calls
-    // this->dynFuncArgsPass(sol_filepath);
-    this->importPass(sol_filepath);
-    this->constrcutorPass(sol_filepath);
-    auto newCli = getCli(m_modifiedSolFilepath.c_str());
-    auto paths = newCli.options().input.paths;
-    this->m_fileReader = std::move(newCli.fileReader());
-    this->m_options = newCli.options();
-    solidity::langutil::CharStream charStream{m_src, m_modifiedSolFilepath};
+WarpVisitor& WarpVisitor::yul() {
+    solidity::langutil::CharStream charStream{m_solState->src,
+                                              m_solState->modifiedSolFilePath};
     langutil::SingletonCharStreamProvider charStreamProvider{charStream};
-    IRGenerator generator(newCli.options().output.evmVersion,
-                          newCli.options().output.revertStrings,
-                          m_compilerOptimizerSettings,
-                          m_compiler->sourceIndices(), &charStreamProvider);
+    IRGenerator generator(langutil::EVMVersion::london(),
+                          RevertStrings::Default, m_solState->optimizerSettings,
+                          m_solState->compiler->sourceIndices(),
+                          &charStreamProvider);
 
     std::string yulIR, yulIROptimized;
     auto otherYulSources =
         std::map<ContractDefinition const*, std::string_view const>();
     tie(yulIR, yulIROptimized) = generator.run(
-        m_compiler->contractDefinition(m_modifiedContractName),
-        m_compiler->cborMetadata(m_modifiedContractName), otherYulSources);
-    auto prepass = YulCleaner(m_src, m_mainContract,
-                              m_modifiedSolFilepath.c_str(), m_storageVars_str);
+        m_solState->compiler->contractDefinition(m_modifiedContractName),
+        m_solState->compiler->cborMetadata(m_modifiedContractName),
+        otherYulSources);
+    m_yulIR = yulIROptimized;
+    return *this;
+}
 
-    auto yul = prepass.cleanYul(yulIROptimized, m_mainContract);
-    if (m_print_ir) {
-        std::cout << yul << std::endl;
-        return;
-    }
+WarpVisitor& WarpVisitor::yulPrepass() {
+    auto prepass = YulCleaner(m_solState->src, m_mainContract,
+                              m_solState->modifiedSolFilePath.c_str(),
+                              m_solState->storageVars_str);
+    m_yulIR = prepass.cleanYul(m_yulIR, m_mainContract);
+    return *this;
+}
 
-    // =============== Generate Yul JSON AST ===============
-    langutil::CharStream ir = langutil::CharStream(yul, m_modifiedSolFilepath);
+WarpVisitor& WarpVisitor::generateYulIR() {
+    langutil::CharStream ir =
+        langutil::CharStream(m_yulIR, m_solState->modifiedSolFilePath);
     std::variant<phaser::Program, langutil::ErrorList> maybeProgram =
         phaser::Program::load(ir);
 
@@ -633,9 +386,29 @@ void WarpVisitor::prepareSoliditySource(const char* sol_filepath) {
     }
     auto program = std::get<phaser::Program>(maybeProgram);
     auto yulVisitor =
-        YulVisitor(yul, m_warpConstructorSelector, m_warpConstructorName);
+        YulVisitor(m_yulIR, m_warpConstructorSelector, m_warpConstructorName);
     yulVisitor(program.ast());
-    generateYulAST(yulVisitor.m_src, "YUL_PASS");
+    m_yulIR = yulVisitor.m_src;
+    if (m_print_ir)
+        std::cout << "========YUL IR========\n" + m_yulIR << std::endl;
+    return *this;
+}
 
+WarpVisitor& WarpVisitor::generateYulAST() {
+    langutil::CharStream ir =
+        langutil::CharStream(m_yulIR, m_solState->modifiedSolFilePath);
+    std::variant<phaser::Program, langutil::ErrorList> maybeProgram =
+        phaser::Program::load(ir);
+
+    if (auto* errorList = std::get_if<langutil::ErrorList>(&maybeProgram)) {
+        langutil::SingletonCharStreamProvider streamProvider{ir};
+        langutil::SourceReferenceFormatter{std::cerr, streamProvider, true,
+                                           false}
+            .printErrorInformation(*errorList);
+        std::cerr << std::endl;
+    }
+    auto program = std::get<phaser::Program>(maybeProgram);
+    m_yul_JSON_AST = program.toJson();
     if (fileExists("YUL_PASS")) deleteFile("YUL_PASS");
+    return *this;
 }

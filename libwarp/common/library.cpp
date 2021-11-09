@@ -51,3 +51,15 @@ void deleteFile(std::string filePath) {
     else
         std::cout << "file " << filePath << " not found.\n";
 }
+
+std::string joinSrcSplit(std::vector<std::string> srcSplit) {
+    std::string newSrc;
+    std::for_each(srcSplit.begin(), srcSplit.end(),
+                  [&newSrc](std::string line) { newSrc += line + "\n"; });
+    return newSrc;
+}
+
+bool fileExists(const std::string& name) {
+    struct stat buffer;
+    return (stat(name.c_str(), &buffer) == 0);
+}

@@ -23,3 +23,5 @@ std::vector<std::string> splitStr(const std::string& str);
 std::string slurpFile(std::string_view path);
 void writeFile(std::string filePath, std::string toWrite);
 void deleteFile(std::string filePath);
+std::string joinSrcSplit(std::vector<std::string> srcSplit);
+bool fileExists(const std::string& name);
