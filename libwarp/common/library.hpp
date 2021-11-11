@@ -8,18 +8,23 @@
 #include <sstream>
 #include <vector>
 
-bool contains_warp(std::vector<std::string> vec, std::string search);
+using namespace std;
+
+bool contains_warp(vector<string> vec, string search);
 template <typename TType>
-void print_vector(const std::vector<TType>& vec) {
-    typename std::vector<TType>::const_iterator it;
-    std::cout << "(";
+void print_vector(const vector<TType>& vec) {
+    typename vector<TType>::const_iterator it;
     for (it = vec.begin(); it != vec.end(); it++) {
-        if (it != vec.begin()) std::cout << ",";
-        std::cout << (*it);
+        cout << (*it) << endl;
     }
-    std::cout << ")";
 }
-std::vector<std::string> splitStr(const std::string& str);
-std::string slurpFile(std::string_view path);
-void writeFile(std::string filePath, std::string toWrite);
-void deleteFile(std::string filePath);
+vector<string> splitStr(const string& str);
+string slurpFile(string_view path);
+void writeFile(const string& filePath, const string& toWrite);
+void deleteFile(const string& filePath);
+bool fileExists(const string& name);
+string joinSrcSplit(vector<string> srcSplit);
+
+void replaceIdentifierName(string& srcString, const string& identifier,
+                           string newIdentifier);
+string removeEmptyLines(const string& str);
