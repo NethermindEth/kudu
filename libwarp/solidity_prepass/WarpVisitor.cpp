@@ -89,8 +89,6 @@ CommandLineInterface WarpVisitor::getCli(char const* sol_filepath) {
     erase(yulOptimiserSteps, 'i');  // remove FullInliner
     erase(yulOptimiserSteps, 'F');
     erase(yulOptimiserSteps, 'v');
-    yulOptimiserSteps += "x";  // that flattens function calls: only one
-    // function call per statement is allowed
     constexpr int solc_argc = 2;
     char const* solc_argv[solc_argc] = {
         "--bin",
@@ -317,7 +315,6 @@ OptimiserSettings WarpVisitor::optimizerSettings() {
     erase(yulOptimiserSteps, 'i');  // remove FullInliner
     erase(yulOptimiserSteps, 'F');
     erase(yulOptimiserSteps, 'v');
-    yulOptimiserSteps += "x";  // that flattens function calls: only one
     auto compilerOptimizerSettings = OptimiserSettings::full();
     compilerOptimizerSettings.yulOptimiserSteps = yulOptimiserSteps;
     compilerOptimizerSettings.expectedExecutionsPerDeployment = 1;
