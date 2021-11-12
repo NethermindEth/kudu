@@ -23,8 +23,8 @@ include(FetchContent)
 FetchContent_Declare(
         solidity
 
-        GIT_REPOSITORY "https://github.com/NethermindEth/nether_solc.git"
-        GIT_TAG "3b32163d9b954d246bd16d5d14b2bad7d548d7c4"
+        GIT_REPOSITORY "https://github.com/NethermindEth/nethersolc.git"
+        GIT_TAG "b549d009c9456683c9f13307fd855020dbb04d38"
         )
 
 if (NOT solidity_POPULATED)
