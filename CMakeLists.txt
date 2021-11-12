@@ -15,7 +15,7 @@ endif()
 
 add_compile_options(-Wall -Wextra -pedantic -Werror -O3 -Wno-unused-parameter -Wno-newline-eof)
 
-find_package(Boost CONFIG REQUIRED COMPONENTS regex)
+find_package(Boost 1.65.0 QUIET REQUIRED COMPONENTS regex)
 include_directories(${Boost_INCLUDE_DIRS})
 
 include(FetchContent)
