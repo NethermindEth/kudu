@@ -7,6 +7,7 @@
 #include <optional>
 #include <vector>
 
+using namespace std;
 using namespace solidity;
 
 class YulVisitor : public boost::static_visitor<void> {
@@ -18,11 +19,11 @@ class YulVisitor : public boost::static_visitor<void> {
         Skip,
     };
 
-    YulVisitor(std::string src, std::string warpConstructorSelector,
-               std::string warpConstructorName);
+    YulVisitor(string src, string warpConstructorSelector,
+               string warpConstructorName);
 
     template <class T>
-    void visitVectorOfVariants(const std::vector<T>& _vec);
+    void visitVectorOfVariants(const vector<T>& _vec);
     void printSrcAtLocation(langutil::SourceLocation loc);
     void writeModifiedYul();
     void refreshYulAST();
@@ -47,8 +48,8 @@ class YulVisitor : public boost::static_visitor<void> {
     bool m_inEntryFunction;
     bool m_dynamicArgsInConstructor;
     PassType m_currentPass;
-    std::string m_src;
-    const std::string dynamicEntrySeq = R"(
+    string m_src;
+    const string dynamicEntrySeq = R"(
                 let _1 := 128
                 let _2 := 64
                 mstore(_2, _1)
@@ -58,13 +59,13 @@ class YulVisitor : public boost::static_visitor<void> {
 				let _8 := calldataload(_7)
 				let _9 := 224
 				let _10 := shr(_9, _8) )";
-    std::string m_srcModified;
-    std::optional<std::string> m_deletedCase;
-    std::string m_currentFunction;
-    std::string m_currentDeclr = "";
+    string m_srcModified;
+    optional<string> m_deletedCase;
+    string m_currentFunction;
+    string m_currentDeclr = "";
     int m_currDeclrLocation[2] = {0, 0};
     int m_prevDeclrLocation[2];
-    std::string m_prevDeclr;
-    std::string m_constructorName;
-    std::string m_constructorSelector;
+    string m_prevDeclr;
+    string m_constructorSelector;
+    string m_constructorName;
 };
