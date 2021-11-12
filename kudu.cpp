@@ -67,6 +67,7 @@ int main(int argc, char* argv[]) {
                             print_ir);
     warpVisitor.yulPrepass().yulPass().generateYulAST();
     std::cout << warpVisitor.m_yul_JSON_AST << std::endl;
-    deleteFile("YUL_PASS");
+    if (fileExists("YUL_PASS"))
+        deleteFile("YUL_PASS");
     return 0;
 }
