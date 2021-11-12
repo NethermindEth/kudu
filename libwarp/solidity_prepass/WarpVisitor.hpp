@@ -68,6 +68,8 @@ class WarpVisitor : public ASTConstVisitor {
     CommandLineOptions m_options;
     FileReader m_fileReader;
     string m_filepath;
+    string m_mainSourceUnit;
+    string m_modifiedSourceUnit;
     string m_modifiedSolFilepath;
     string m_src;
     string m_srcOriginal;

@@ -24,10 +24,14 @@ WarpVisitor::WarpVisitor(const string& main_contract, const string& src,
     m_print_ir = print_ir;
     m_srcSplit = splitStr(m_src);
     m_filepath = filepath;
+    m_mainSourceUnit =
+        m_fileReader.cliPathToSourceUnitName(boost::filesystem::path(filepath));
     m_mainContract = main_contract;
     m_modifiedSolFilepath =
-        string(filepath.begin(), filepath.end() - 4) + "_marked.sol";
-    m_modifiedContractName = m_modifiedSolFilepath + ":" + m_mainContract;
+        string(m_filepath.begin(), m_filepath.end() - 4) + "_marked.sol";
+    m_modifiedSourceUnit = m_fileReader.cliPathToSourceUnitName(
+        boost::filesystem::path(m_modifiedSolFilepath));
+    m_modifiedContractName = m_modifiedSourceUnit + ":" + m_mainContract;
     m_contractName = filepath + ":" + m_mainContract;
     newCompiler();
     consolidateImports();
@@ -140,7 +144,7 @@ void WarpVisitor::getInheritedConstructorCalls(
             }
             auto modDeclr = mod->name().annotation().referencedDeclaration;
             auto fullyQualifiedName =
-                m_modifiedSolFilepath + ":" + modDeclr->name();
+                m_modifiedSourceUnit + ":" + modDeclr->name();
             if (modDeclr and
                 contains_warp(m_contractNames, fullyQualifiedName)) {
                 vec<string> callArguments;
@@ -213,6 +217,9 @@ void WarpVisitor::getInheritedConstructorCalls(
 void WarpVisitor::generateWarpConstructor() {
     FunctionDefinition const* constructor =
         m_compiler->contractDefinition(m_modifiedContractName).constructor();
+    if (!constructor) {
+        return;
+    }
     auto paramsStart = constructor->parameterList().location().start;
     auto paramsEnd = constructor->parameterList().location().end;
     auto params = string(m_srcOriginal.begin() + paramsStart,
@@ -320,7 +327,7 @@ OptimiserSettings WarpVisitor::optimizerSettings() {
 void WarpVisitor::constrcutorPass() {
     m_currentPass = PassType::ConstructorPass;
     m_srcOriginal = m_src;
-    m_compiler->ast(m_modifiedSolFilepath).accept(*this);
+    m_compiler->ast(m_modifiedSourceUnit).accept(*this);
     generateWarpConstructor();
     m_src = joinSrcSplit(m_srcSplit);
     writeModifiedSolidity();
@@ -352,7 +359,7 @@ void WarpVisitor::refreshCompilerState(string filepath) {
 
 WarpVisitor& WarpVisitor::generateYulAST() {
     langutil::CharStream ir =
-        langutil::CharStream(m_yulIR, m_modifiedSolFilepath);
+        langutil::CharStream(m_yulIR, m_modifiedSourceUnit);
     variant<phaser::Program, langutil::ErrorList> maybeProgram =
         phaser::Program::load(ir);
 
@@ -372,7 +379,7 @@ WarpVisitor& WarpVisitor::yulPrepass() {
     auto newCli = getCli(m_modifiedSolFilepath.c_str());
     m_fileReader = move(newCli.fileReader());
     m_options = newCli.options();
-    solidity::langutil::CharStream charStream{m_src, m_modifiedSolFilepath};
+    solidity::langutil::CharStream charStream{m_src, m_modifiedSourceUnit};
     langutil::SingletonCharStreamProvider charStreamProvider{charStream};
     IRGenerator generator(newCli.options().output.evmVersion,
                           newCli.options().output.revertStrings,
@@ -392,7 +399,7 @@ WarpVisitor& WarpVisitor::yulPrepass() {
 
 WarpVisitor& WarpVisitor::yulPass() {
     langutil::CharStream ir =
-        langutil::CharStream(m_yulIR, m_modifiedSolFilepath);
+        langutil::CharStream(m_yulIR, m_modifiedSourceUnit);
     variant<phaser::Program, langutil::ErrorList> maybeProgram =
         phaser::Program::load(ir);
 
@@ -453,8 +460,8 @@ string WarpVisitor::cleanImportedFile(const string& path) {
 }
 
 void WarpVisitor::consolidateImports() {
-    m_compiler->ast(m_filepath).accept(*this);
-    referencedSourceUnits(m_compiler->ast(m_filepath));
+    m_compiler->ast(m_mainSourceUnit).accept(*this);
+    referencedSourceUnits(m_compiler->ast(m_mainSourceUnit));
     m_importStr = removeEmptyLines(m_importStr);
     m_src = removeImportDirectives(m_src);
     m_src = m_importStr + m_src;
