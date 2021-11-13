@@ -339,9 +339,18 @@ void WarpVisitor::newCompiler() {
     m_compiler = make_shared<CompilerStack>(m_fileReader.reader());
     m_options = cli.options();
     setCompilerOptions();
-    m_compiler->parse();
-    m_compiler->analyze();
-    m_compiler->compile();
+    size_t start = this->m_compiler->errors().size();
+    
+    try{
+        if(!this->m_compiler->compile()) throw std::runtime_error("Compilation failed");
+    } catch (std::exception const& ex) {
+        for(size_t i = start; i < this->m_compiler->errors().size(); i++) {
+            auto err = this->m_compiler->errors()[i];
+            if(err->errorSeverity(err->type()) != solidity::langutil::Error::Severity::Error) continue;
+            std::cout << "Compilation error : " << this->m_compiler->errors()[i].get()->what() << std::endl;
+        }
+        throw;
+    }
 }
 
 void WarpVisitor::refreshCompilerState(string filepath) {
@@ -350,9 +359,18 @@ void WarpVisitor::refreshCompilerState(string filepath) {
     m_fileReader = move(newCli.fileReader());
     m_options = newCli.options();
     setCompilerOptions();
-    m_compiler->parse();
-    m_compiler->analyze();
-    m_compiler->compile();
+    size_t start = this->m_compiler->errors().size();
+    
+    try{
+        if(!this->m_compiler->compile()) throw std::runtime_error("Compilation failed");
+    } catch (std::exception const& ex) {
+        for(size_t i = start; i < this->m_compiler->errors().size(); i++) {
+            auto err = this->m_compiler->errors()[i];
+            if(err->errorSeverity(err->type()) != solidity::langutil::Error::Severity::Error) continue;
+            std::cout << "Compilation error : " << this->m_compiler->errors()[i].get()->what() << std::endl;
+        }
+        throw;
+    }
     m_contractNames = m_compiler->contractNames();
 }
 
