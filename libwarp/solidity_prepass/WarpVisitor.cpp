@@ -89,6 +89,7 @@ CommandLineInterface WarpVisitor::getCli(char const* sol_filepath) {
     erase(yulOptimiserSteps, 'i');  // remove FullInliner
     erase(yulOptimiserSteps, 'F');
     erase(yulOptimiserSteps, 'v');
+    yulOptimiserSteps += 'x';
     constexpr int solc_argc = 2;
     char const* solc_argv[solc_argc] = {
         "--bin",
@@ -315,6 +316,7 @@ OptimiserSettings WarpVisitor::optimizerSettings() {
     erase(yulOptimiserSteps, 'i');  // remove FullInliner
     erase(yulOptimiserSteps, 'F');
     erase(yulOptimiserSteps, 'v');
+    yulOptimiserSteps += 'x';
     auto compilerOptimizerSettings = OptimiserSettings::full();
     compilerOptimizerSettings.yulOptimiserSteps = yulOptimiserSteps;
     compilerOptimizerSettings.expectedExecutionsPerDeployment = 1;
