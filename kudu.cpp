@@ -51,14 +51,14 @@ int printUsageInfo(char* argv[]) {
     return 1;
 }
 
-void printYulAST(std::string& main_contract, std::string& contractContents, 
-    const char* sol_filepath, bool print_ir) {
+void printYulAST(std::string& main_contract, std::string& contractContents,
+                 const char* sol_filepath, bool print_ir) {
     try {
-      WarpVisitor warpVisitor(main_contract, contractContents, sol_filepath,
-                             print_ir);
-      warpVisitor.yulPrepass().yulPass().generateYulAST();
-      std::cout << warpVisitor.m_yul_JSON_AST << std::endl;
-    } catch (std::exception const &exc) {
+        WarpVisitor warpVisitor(main_contract, contractContents, sol_filepath,
+                                print_ir);
+        warpVisitor.yulPrepass().yulPass().generateYulAST();
+        std::cout << warpVisitor.m_yul_JSON_AST << std::endl;
+    } catch (std::exception const& exc) {
         std::cerr << "ERROR: " << exc.what() << std::endl;
     } catch (...) {
         std::cerr << "Unknown error occurred." << std::endl;
@@ -77,9 +77,7 @@ int main(int argc, char* argv[]) {
     bool print_ir =
         argc == 5 ? std::strncmp(argv[4], "--print-ir", 10) == 0 : false;
     std::string contractContents = slurpFile(sol_filepath);
-    printYulAST(main_contract, contractContents, sol_filepath,
-                print_ir);
-    if (fileExists("YUL_PASS"))
-        deleteFile("YUL_PASS");
+    printYulAST(main_contract, contractContents, sol_filepath, print_ir);
+    if (fileExists("YUL_PASS")) deleteFile("YUL_PASS");
     return 0;
 }

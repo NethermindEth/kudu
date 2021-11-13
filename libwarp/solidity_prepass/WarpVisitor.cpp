@@ -87,9 +87,6 @@ void WarpVisitor::writeModifiedSolidity() {
 CommandLineInterface WarpVisitor::getCli(char const* sol_filepath) {
     string yulOptimiserSteps = OptimiserSettings::DefaultYulOptimiserSteps;
     erase(yulOptimiserSteps, 'i');  // remove FullInliner
-    erase(yulOptimiserSteps, 'F');
-    erase(yulOptimiserSteps, 'v');
-    yulOptimiserSteps += 'x';
     constexpr int solc_argc = 2;
     char const* solc_argv[solc_argc] = {
         "--bin",
@@ -314,9 +311,6 @@ void WarpVisitor::setCompilerOptions() {
 OptimiserSettings WarpVisitor::optimizerSettings() {
     string yulOptimiserSteps = OptimiserSettings::DefaultYulOptimiserSteps;
     erase(yulOptimiserSteps, 'i');  // remove FullInliner
-    erase(yulOptimiserSteps, 'F');
-    erase(yulOptimiserSteps, 'v');
-    yulOptimiserSteps += 'x';
     auto compilerOptimizerSettings = OptimiserSettings::full();
     compilerOptimizerSettings.yulOptimiserSteps = yulOptimiserSteps;
     compilerOptimizerSettings.expectedExecutionsPerDeployment = 1;
@@ -340,14 +334,19 @@ void WarpVisitor::newCompiler() {
     m_options = cli.options();
     setCompilerOptions();
     size_t start = this->m_compiler->errors().size();
-    
-    try{
-        if(!this->m_compiler->compile()) throw std::runtime_error("Compilation failed");
+
+    try {
+        if (!this->m_compiler->compile())
+            throw std::runtime_error("Compilation failed");
     } catch (std::exception const& ex) {
-        for(size_t i = start; i < this->m_compiler->errors().size(); i++) {
+        for (size_t i = start; i < this->m_compiler->errors().size(); i++) {
             auto err = this->m_compiler->errors()[i];
-            if(err->errorSeverity(err->type()) != solidity::langutil::Error::Severity::Error) continue;
-            std::cout << "Compilation error : " << this->m_compiler->errors()[i].get()->what() << std::endl;
+            if (err->errorSeverity(err->type()) !=
+                solidity::langutil::Error::Severity::Error)
+                continue;
+            std::cout << "Compilation error : "
+                      << this->m_compiler->errors()[i].get()->what()
+                      << std::endl;
         }
         throw;
     }
@@ -360,14 +359,19 @@ void WarpVisitor::refreshCompilerState(string filepath) {
     m_options = newCli.options();
     setCompilerOptions();
     size_t start = this->m_compiler->errors().size();
-    
-    try{
-        if(!this->m_compiler->compile()) throw std::runtime_error("Compilation failed");
+
+    try {
+        if (!this->m_compiler->compile())
+            throw std::runtime_error("Compilation failed");
     } catch (std::exception const& ex) {
-        for(size_t i = start; i < this->m_compiler->errors().size(); i++) {
+        for (size_t i = start; i < this->m_compiler->errors().size(); i++) {
             auto err = this->m_compiler->errors()[i];
-            if(err->errorSeverity(err->type()) != solidity::langutil::Error::Severity::Error) continue;
-            std::cout << "Compilation error : " << this->m_compiler->errors()[i].get()->what() << std::endl;
+            if (err->errorSeverity(err->type()) !=
+                solidity::langutil::Error::Severity::Error)
+                continue;
+            std::cout << "Compilation error : "
+                      << this->m_compiler->errors()[i].get()->what()
+                      << std::endl;
         }
         throw;
     }

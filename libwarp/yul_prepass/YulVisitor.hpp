@@ -28,6 +28,8 @@ class YulVisitor : public boost::static_visitor<void> {
     void writeModifiedYul();
     void refreshYulAST();
 
+    string getEntryPrelude(const vector<string>& _funcLines);
+
     void operator()(const yul::Block& _node);
     void operator()(const yul::TypedName& _node);
     void operator()(const yul::Literal& _node);
@@ -49,16 +51,6 @@ class YulVisitor : public boost::static_visitor<void> {
     bool m_dynamicArgsInConstructor;
     PassType m_currentPass;
     string m_src;
-    const string dynamicEntrySeq = R"(
-                let _1 := 128
-                let _2 := 64
-                mstore(_2, _1)
-                let _3 := 4
-                let _4 := calldatasize()
-				let _7 := 0
-				let _8 := calldataload(_7)
-				let _9 := 224
-				let _10 := shr(_9, _8) )";
     string m_srcModified;
     optional<string> m_deletedCase;
     string m_currentFunction;
@@ -68,4 +60,5 @@ class YulVisitor : public boost::static_visitor<void> {
     string m_prevDeclr;
     string m_constructorSelector;
     string m_constructorName;
+    string m_entryPrelude;
 };

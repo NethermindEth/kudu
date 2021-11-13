@@ -10,6 +10,8 @@
 
 #include <fstream>
 
+#include "libwarp/common/library.hpp"
+
 YulVisitor::YulVisitor(string src, string warpConstructorSelector,
                        string warpConstructorName)
     : m_src(src),
@@ -110,14 +112,37 @@ void YulVisitor::operator()(const yul::VariableDeclaration& _node) {
     if (_node.value) visit(*this, *_node.value);
 }
 
+string YulVisitor::getEntryPrelude(const vector<string>& _funcLines) {
+    string prelude;
+    int idx = 0;
+    for (size_t i = 0; i < _funcLines.size(); i++) {
+        if (_funcLines[i] ==
+            "                if iszero(lt(calldatasize(), 4))") {
+            idx = i;
+            break;
+        }
+    }
+    if (idx >= 2) {
+        for (int i = 2; i < idx; i++) {
+            prelude += _funcLines[i] + "\n";
+        }
+    }
+    return prelude;
+}
+
 void YulVisitor::operator()(const yul::FunctionDefinition& _node) {
     m_inEntryFunction = _node.name.str() == "fun_ENTRY_POINT";
     m_currentFunction = _node.name.str();
-
+    if (m_inEntryFunction and m_currentPass == PassType::Constructor) {
+        string func =
+            string(m_src.begin() + _node.debugData->nativeLocation.start,
+                   m_src.begin() + _node.debugData->nativeLocation.end);
+        vector<string> funcLines = splitStr(func);
+        m_entryPrelude = getEntryPrelude(funcLines);
+    }
     if (m_currentFunction == m_constructorName and
         m_currentPass == PassType::Constructor and m_dynamicArgsInConstructor) {
-        string constructorPrelude =
-            dynamicEntrySeq + "\n" + m_deletedCase.value();
+        string constructorPrelude = m_entryPrelude + m_deletedCase.value();
         util::Whiskers templ(R"(
             function fun_warp_constructor_DynArgs()
             {
