@@ -15,7 +15,7 @@ endif()
 
 add_compile_options(-Wall -Wextra -pedantic -Werror -O3 -Wno-unused-parameter -Wno-newline-eof)
 
-find_package(Boost CONFIG REQUIRED COMPONENTS regex)
+find_package(Boost 1.65.0 QUIET REQUIRED COMPONENTS regex)
 include_directories(${Boost_INCLUDE_DIRS})
 
 include(FetchContent)
@@ -24,7 +24,7 @@ FetchContent_Declare(
         solidity
 
         GIT_REPOSITORY "https://github.com/NethermindEth/nethersolc.git"
-        GIT_TAG "367e792a77232daf93d2e39db1926f85899f21cc"
+        GIT_TAG "82674b0105729ac57f257a2f33ebd98808b3697b"
         )
 
 if (NOT solidity_POPULATED)
