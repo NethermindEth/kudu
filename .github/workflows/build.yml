@@ -50,8 +50,10 @@ jobs:
           path: build/kudu
 
   build-macos:
-    runs-on: macos-latest
-
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-10.15, macos-11]
     steps:
       - uses: actions/checkout@v2
 
@@ -63,11 +65,10 @@ jobs:
       - name: Cache build (macos)
         uses: actions/cache@v2
         with:
-          # npm cache files are stored in `~/.npm` on Linux/macOS
           path: build
-          key: macos-build-${{ secrets.CACHE_ID }}-${{ steps.cache-id.outputs.timestamp }}
+          key: ${{matrix.os}}-build-${{ secrets.CACHE_ID }}-${{ steps.cache-id.outputs.timestamp }}
           restore-keys: |
-            macos-build-${{ secrets.CACHE_ID }}-
+            ${{matrix.os}}-build-${{ secrets.CACHE_ID }}-
 
       - name: Install dependencies
         run: brew install cmake boost icu4c
@@ -79,5 +80,5 @@ jobs:
       - name: Upload kudu artifact
         uses: actions/upload-artifact@v2
         with:
-          name: kudu-macos
+          name: kudu-${{matrix.os}}
           path: build/kudu
