@@ -114,11 +114,22 @@ void YulVisitor::operator()(const yul::VariableDeclaration& _node) {
 
 string YulVisitor::getEntryPrelude(const vector<string>& _funcLines) {
     string prelude;
+    string preludeInner;
     int idx = 0;
+    int switchSearchIdx = 0;
     for (size_t i = 0; i < _funcLines.size(); i++) {
-        if (_funcLines[i] ==
-            "                if iszero(lt(calldatasize(), 4))") {
+        if ((_funcLines[i] ==
+            "                if iszero(lt(calldatasize(), 4))"
+            or _funcLines[i].find("                if") != string::npos ) 
+            and  _funcLines[i+1] == "                {") {
             idx = i;
+            switchSearchIdx = i + 2;
+            for (size_t j = switchSearchIdx; j < _funcLines.size(); j++) {
+                if (_funcLines[j].find("                    switch") != string::npos) {
+                    break;
+                }
+                preludeInner += _funcLines[j] + "\n";
+            }
             break;
         }
     }
@@ -127,7 +138,7 @@ string YulVisitor::getEntryPrelude(const vector<string>& _funcLines) {
             prelude += _funcLines[i] + "\n";
         }
     }
-    return prelude;
+    return prelude + preludeInner;
 }
 
 void YulVisitor::operator()(const yul::FunctionDefinition& _node) {
