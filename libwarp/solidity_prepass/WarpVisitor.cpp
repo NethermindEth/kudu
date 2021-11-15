@@ -458,7 +458,8 @@ string WarpVisitor::removeImportDirectives(string src) {
     stringstream ss(src);
     string line;
     while (getline(ss, line)) {
-        if (line.find("import \'") != string::npos) {
+        if (line.find("import \'") != string::npos or
+            line.find("import \"") != string::npos) {
             continue;
         }
         newSrc += line + "\n";
@@ -471,6 +472,7 @@ string WarpVisitor::cleanImportedFile(const string& path) {
     auto vecStr = splitStr(removeComments(removeEmptyLines(src)));
     for (auto it = vecStr.begin(); it != vecStr.end();) {
         if (it->find("import \'") != string::npos or
+            it->find("import \"") != string::npos or
             it->find("pragma ") != string::npos) {
             it = vecStr.erase(it);
         } else {
