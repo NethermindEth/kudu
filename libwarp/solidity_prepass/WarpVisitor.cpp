@@ -87,6 +87,7 @@ void WarpVisitor::writeModifiedSolidity() {
 CommandLineInterface WarpVisitor::getCli(char const* sol_filepath) {
     string yulOptimiserSteps = OptimiserSettings::DefaultYulOptimiserSteps;
     erase(yulOptimiserSteps, 'i');  // remove FullInliner
+    erase(yulOptimiserSteps, 'F');  // remove function specializer
     constexpr int solc_argc = 2;
     char const* solc_argv[solc_argc] = {
         "--bin",
@@ -311,6 +312,7 @@ void WarpVisitor::setCompilerOptions() {
 OptimiserSettings WarpVisitor::optimizerSettings() {
     string yulOptimiserSteps = OptimiserSettings::DefaultYulOptimiserSteps;
     erase(yulOptimiserSteps, 'i');  // remove FullInliner
+    erase(yulOptimiserSteps, 'F');  // remove function specializer
     auto compilerOptimizerSettings = OptimiserSettings::full();
     compilerOptimizerSettings.yulOptimiserSteps = yulOptimiserSteps;
     compilerOptimizerSettings.expectedExecutionsPerDeployment = 1;
