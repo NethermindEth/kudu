@@ -13,7 +13,7 @@ if (SANITIZE)
   add_link_options(-fsanitize=address -fsanitize=leak -fsanitize=undefined)
 endif()
 
-add_compile_options(-Wall -Wextra -pedantic -Werror -O3 -Wno-unused-parameter -Wno-newline-eof)
+add_compile_options(-Wall -Wextra -pedantic -Werror -O3 -Wno-unused-parameter -Wno-uninitialized)
 
 find_package(Boost 1.65.0 QUIET REQUIRED COMPONENTS regex)
 include_directories(${Boost_INCLUDE_DIRS})
@@ -24,7 +24,7 @@ FetchContent_Declare(
         solidity
 
         GIT_REPOSITORY "https://github.com/NethermindEth/nethersolc.git"
-        GIT_TAG "a21bdd3079844f951d37ab4b44d19de6ebac9756"
+        GIT_TAG "31d80771df272300e97d7674ea35a5e673b0c51b"
         )
 
 if (NOT solidity_POPULATED)
