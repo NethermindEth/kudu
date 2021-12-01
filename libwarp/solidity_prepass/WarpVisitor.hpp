@@ -9,7 +9,6 @@
 #include <string>
 
 #include "libwarp/common/library.hpp"
-#include "libwarp/yul_prepass/YulCleaner.hpp"
 
 using namespace std;
 using namespace solidity::frontend;
@@ -23,13 +22,6 @@ using vec = vector<T>;
 class WarpVisitor : public ASTConstVisitor {
    public:
     using ImportDirectives = vector<ImportDirective>;
-    enum class PassType {
-        ConstructorPass,
-        FunctionCallPass,
-        FunctionDefinitionPass,
-        StorageVarPass,
-        StorageFunctionPass,
-    };
 
     WarpVisitor(const string& main_contract, const string& src,
                 const string& filepath, bool print_ir);
@@ -39,7 +31,6 @@ class WarpVisitor : public ASTConstVisitor {
     bool visitNode(ASTNode const& node) override;
 
     WarpVisitor& yulPrepass();
-    WarpVisitor& yulPass();
     WarpVisitor& generateYulAST();
 
     string m_yulIR;
@@ -48,11 +39,9 @@ class WarpVisitor : public ASTConstVisitor {
 
    private:
     void consolidateImports();
-    void constrcutorPass();
     void newCompiler();
     void refreshCompilerState(string filepath);
     void setCompilerOptions();
-    void generateWarpConstructor();
     void writeModifiedSolidity();
     void referencedSourceUnits(const SourceUnit& currSourceUnit);
     string cleanImportedFile(const string& src);
@@ -60,10 +49,7 @@ class WarpVisitor : public ASTConstVisitor {
     string removeComments(string src);
     OptimiserSettings optimizerSettings();
     CommandLineInterface getCli(char const* sol_filepath);
-    void getInheritedConstructorCalls(
-        vec<ASTPointer<ModifierInvocation>> const& modifiers);
 
-    PassType m_currentPass;
     shared_ptr<CompilerStack> m_compiler;
     CommandLineOptions m_options;
     FileReader m_fileReader;
@@ -72,16 +58,8 @@ class WarpVisitor : public ASTConstVisitor {
     string m_modifiedSourceUnit;
     string m_modifiedSolFilepath;
     string m_src;
-    string m_srcOriginal;
-    vec<string> m_srcSplit;
     vec<string> m_contractNames;
-    string m_mainContract;
-    string m_contractName;
     string m_modifiedContractName;
-    string m_warpConstructor;
-    string m_warpConstructorName;
-    string m_warpConstructorSelector;
-    string m_warpConstructorSig;
     string m_importStr;
     vec<string> m_orderedImportPaths;
     vec<string> m_importedFiles;

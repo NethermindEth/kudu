@@ -12,9 +12,7 @@
 #include <string>
 
 #include "libwarp/solidity_prepass/WarpVisitor.hpp"
-#include "libwarp/yul_prepass/YulCleaner.hpp"
-
-std::vector<std::string> splitStr(const std::string& str);
+#include "libwarp/common/library.hpp"
 
 static void setDefaultOrCLocale() {
 #if __unix__
@@ -56,7 +54,7 @@ void printYulAST(std::string& main_contract, std::string& contractContents,
     try {
         WarpVisitor warpVisitor(main_contract, contractContents, sol_filepath,
                                 print_ir);
-        warpVisitor.yulPrepass().yulPass().generateYulAST();
+        warpVisitor.yulPrepass().generateYulAST();
         std::cout << warpVisitor.m_yul_JSON_AST << std::endl;
     } catch (std::exception const& exc) {
         std::cerr << "ERROR: " << exc.what() << std::endl;
@@ -78,6 +76,5 @@ int main(int argc, char* argv[]) {
         argc == 5 ? std::strncmp(argv[4], "--print-ir", 10) == 0 : false;
     std::string contractContents = slurpFile(sol_filepath);
     printYulAST(main_contract, contractContents, sol_filepath, print_ir);
-    if (fileExists("YUL_PASS")) deleteFile("YUL_PASS");
     return 0;
 }
