@@ -156,8 +156,6 @@ void WarpVisitor::setCompilerOptions() {
 
 OptimiserSettings WarpVisitor::optimizerSettings() {
     string yulOptimiserSteps = OptimiserSettings::DefaultYulOptimiserSteps;
-    erase(yulOptimiserSteps, 'i');  // remove FullInliner
-    erase(yulOptimiserSteps, 'F');  // remove function specializer
     auto compilerOptimizerSettings = OptimiserSettings::full();
     compilerOptimizerSettings.yulOptimiserSteps = yulOptimiserSteps;
     compilerOptimizerSettings.expectedExecutionsPerDeployment = 1;
