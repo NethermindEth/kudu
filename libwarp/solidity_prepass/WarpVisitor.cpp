@@ -1,41 +1,41 @@
 #include "WarpVisitor.hpp"
 
+#include <json/value.h>
 #include <liblangutil/CharStreamProvider.h>
 #include <liblangutil/Exceptions.h>
+#include <liblangutil/Scanner.h>
 #include <liblangutil/SourceReferenceFormatter.h>
 #include <libsolidity/codegen/ir/IRGenerator.h>
 #include <libsolutil/IndentedWriter.h>
+#include <libsolutil/JSON.h>
 #include <libsolutil/Keccak256.h>
 #include <libyul/AsmJsonConverter.h>
+#include <libyul/backends/evm/EVMDialect.h>
 #include <tools/yulPhaser/Program.h>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/regex.hpp>
+#include <boost/throw_exception.hpp>
 #include <cstdio>
+#include <stdexcept>
 
 #include "libwarp/common/library.hpp"
-#include "libwarp/yul_prepass/YulCleaner.hpp"
-#include "libwarp/yul_prepass/YulVisitor.hpp"
+
 
 WarpVisitor::WarpVisitor(const string& main_contract, const string& src,
                          const string& filepath, bool print_ir) {
     m_src = removeComments(removeEmptyLines(src));
-    m_srcOriginal = src;
     m_print_ir = print_ir;
-    m_srcSplit = splitStr(m_src);
     m_filepath = filepath;
     m_mainSourceUnit =
         m_fileReader.cliPathToSourceUnitName(boost::filesystem::path(filepath));
-    m_mainContract = main_contract;
     m_modifiedSolFilepath =
         string(m_filepath.begin(), m_filepath.end() - 4) + "_marked.sol";
     m_modifiedSourceUnit = m_fileReader.cliPathToSourceUnitName(
         boost::filesystem::path(m_modifiedSolFilepath));
-    m_modifiedContractName = m_modifiedSourceUnit + ":" + m_mainContract;
-    m_contractName = filepath + ":" + m_mainContract;
+    m_modifiedContractName = m_modifiedSourceUnit + ":" + main_contract;
     newCompiler();
     consolidateImports();
-    constrcutorPass();
 }
 
 int getEndOfMultiLineComment(vector<string> lines, int start) {
@@ -85,9 +85,6 @@ void WarpVisitor::writeModifiedSolidity() {
 }
 
 CommandLineInterface WarpVisitor::getCli(char const* sol_filepath) {
-    string yulOptimiserSteps = OptimiserSettings::DefaultYulOptimiserSteps;
-    erase(yulOptimiserSteps, 'i');  // remove FullInliner
-    erase(yulOptimiserSteps, 'F');  // remove function specializer
     constexpr int solc_argc = 2;
     char const* solc_argv[solc_argc] = {
         "--bin",
@@ -107,14 +104,6 @@ CommandLineInterface WarpVisitor::getCli(char const* sol_filepath) {
 }
 
 bool WarpVisitor::visit(VariableDeclaration const& _node) {
-    if (m_currentPass == PassType::ConstructorPass) {
-        if (_node.isStateVariable()) {
-            if (_node.mutability() ==
-                VariableDeclaration::Mutability::Immutable)
-                throw runtime_error(
-                    "Warp does not support immutable storage variables yet. ");
-        }
-    }
     return visitNode(_node);
 }
 
@@ -127,150 +116,6 @@ bool WarpVisitor::visit(ImportDirective const& _node) {
         m_orderedImportPaths.emplace_back(absolutePath);
         return visitNode(_node);
     }
-}
-
-void WarpVisitor::getInheritedConstructorCalls(
-    vec<ASTPointer<ModifierInvocation>> const& modifiers) {
-    if (modifiers.size() == 0)
-        return;
-    else {
-        for (auto mod : modifiers) {
-            vec<ASTPointer<Expression>> modifierCallArgs;
-            if (mod->arguments()) {
-                modifierCallArgs = *mod->arguments();
-            }
-            auto modDeclr = mod->name().annotation().referencedDeclaration;
-            auto fullyQualifiedName =
-                m_modifiedSourceUnit + ":" + modDeclr->name();
-            if (modDeclr and
-                contains_warp(m_contractNames, fullyQualifiedName)) {
-                vec<string> callArguments;
-                for_each(
-                    modifierCallArgs.begin(), modifierCallArgs.end(),
-                    [&callArguments](ASTPointer<Expression> expr) {
-                        try {
-                            string identifier =
-                                dynamic_cast<Identifier const&>(*expr).name();
-                            callArguments.emplace_back(identifier);
-                        } catch (const bad_cast& e) {
-                            Type const* type =
-                                dynamic_cast<Literal const&>(*expr)
-                                    .annotation()
-                                    .type;
-                            switch (type->category()) {
-                                case Type::Category::RationalNumber:
-                                case Type::Category::Bool:
-                                case Type::Category::Address: {
-                                    solidity::u256 literal = type->literalValue(
-                                        &dynamic_cast<Literal const&>(*expr));
-                                    callArguments.emplace_back(
-                                        boost::to_string(literal));
-                                    break;
-                                }
-                                default:
-                                    solUnimplemented(
-                                        "Only integer and boolean literals "
-                                        "implemented for now.");
-                            }
-                        }
-                    });
-                auto constructorDef =
-                    m_compiler->contractDefinition(modDeclr->name())
-                        .constructor();
-                if (constructorDef) {
-                    auto params = constructorDef->parameters();
-                    auto paramsStart =
-                        constructorDef->parameterList().location().start;
-                    auto paramsEnd =
-                        constructorDef->parameterList().location().end;
-                    auto paramsStr = string(m_srcOriginal.begin() + paramsStart,
-                                            m_srcOriginal.begin() + paramsEnd);
-                    auto bodyStart = constructorDef->body().location().start;
-                    auto bodyEnd = constructorDef->body().location().end;
-                    auto body = string(m_srcOriginal.begin() + bodyStart,
-                                       m_srcOriginal.begin() + bodyEnd);
-                    if (body != "{}") {
-                        auto bodyOnly =
-                            string(m_srcOriginal.begin() + bodyStart + 1,
-                                   m_srcOriginal.begin() + bodyEnd - 1);
-                        bool eq = params.size() == callArguments.size();
-                        solAssert(eq,
-                                  "WarpVisitor.cpp:195 -> parameter.size() != "
-                                  "callArguments.size().");
-                        for (size_t i = 0; i < params.size(); ++i) {
-                            replaceIdentifierName(bodyOnly, params[i]->name(),
-                                                  callArguments[i]);
-                        }
-                        m_warpConstructor += bodyOnly;
-                    }
-                    return getInheritedConstructorCalls(
-                        constructorDef->modifiers());
-                }
-            }
-        }
-    }
-}
-
-void WarpVisitor::generateWarpConstructor() {
-    FunctionDefinition const* constructor =
-        m_compiler->contractDefinition(m_modifiedContractName).constructor();
-    if (!constructor) {
-        return;
-    }
-    auto paramsStart = constructor->parameterList().location().start;
-    auto paramsEnd = constructor->parameterList().location().end;
-    auto params = string(m_srcOriginal.begin() + paramsStart,
-                         m_srcOriginal.begin() + paramsEnd);
-    if (params.find(" calldata ") != string::npos or
-        params.find(" memory ") != string::npos) {
-        m_warpConstructor = "    function __warp_ctorHelper_DynArgs";
-        m_warpConstructorName = "fun_warp_ctorHelper_DynArgs";
-        m_warpConstructorSig = "__warp_ctorHelper_DynArgs(";
-    } else {
-        m_warpConstructor = "    function __warp_constructor";
-        m_warpConstructorName = "fun_warp_constructor";
-        m_warpConstructorSig = "__warp_constructor(";
-    }
-    for (size_t i = 0; i < constructor->parameters().size(); i++) {
-        auto param = constructor->parameters()[i];
-        if (i == constructor->parameters().size() - 1)
-            m_warpConstructorSig +=
-                param->type()->signatureInExternalFunction(false) + ")";
-        else
-            m_warpConstructorSig +=
-                param->type()->signatureInExternalFunction(false) + ",";
-    }
-    boost::replace_all(m_warpConstructorSig, "uint,", "uint256,");
-    m_warpConstructorSelector =
-        "0x" + solidity::util::FixedHash<4>(
-                   solidity::util::keccak256(m_warpConstructorSig))
-                   .hex();
-    auto bodyStart = constructor->body().location().start;
-    auto bodyEnd = constructor->body().location().end;
-    auto body = string(m_srcOriginal.begin() + bodyStart,
-                       m_srcOriginal.begin() + bodyEnd);
-    m_warpConstructor += params + " public {\n";
-    if (body != "{}") {
-        auto bodyOnly = string(m_srcOriginal.begin() + bodyStart + 1,
-                               m_srcOriginal.begin() + bodyEnd - 1);
-        m_warpConstructor += bodyOnly;
-    }
-    getInheritedConstructorCalls(constructor->modifiers());
-    m_warpConstructor += "}\n";
-    vec<string> newSrcSplit;
-    bool inMainContract = false;
-    string check = "contract " + m_mainContract;
-    for (size_t i = 0; i < m_srcSplit.size(); ++i) {
-        if (m_srcSplit[i].find(check) != string::npos) {
-            inMainContract = true;
-        }
-        if (m_srcSplit[i].find(" constructor(") != string::npos and
-            inMainContract) {
-            newSrcSplit.emplace_back(m_warpConstructor);
-        }
-        newSrcSplit.emplace_back(m_srcSplit[i]);
-    }
-    m_srcSplit = newSrcSplit;
 }
 
 void WarpVisitor::setCompilerOptions() {
@@ -317,16 +162,6 @@ OptimiserSettings WarpVisitor::optimizerSettings() {
     compilerOptimizerSettings.yulOptimiserSteps = yulOptimiserSteps;
     compilerOptimizerSettings.expectedExecutionsPerDeployment = 1;
     return compilerOptimizerSettings;
-}
-
-void WarpVisitor::constrcutorPass() {
-    m_currentPass = PassType::ConstructorPass;
-    m_srcOriginal = m_src;
-    m_compiler->ast(m_modifiedSourceUnit).accept(*this);
-    generateWarpConstructor();
-    m_src = joinSrcSplit(m_srcSplit);
-    writeModifiedSolidity();
-    refreshCompilerState(m_modifiedSolFilepath);
 }
 
 void WarpVisitor::newCompiler() {
@@ -381,19 +216,50 @@ void WarpVisitor::refreshCompilerState(string filepath) {
 }
 
 WarpVisitor& WarpVisitor::generateYulAST() {
+    if (m_print_ir) cout << "========YUL IR========\n" + m_yulIR << endl;
+
+    langutil::ErrorList errors;
+    langutil::ErrorReporter errorReporter{errors};
+    auto const& dialect =
+        yul::EVMDialect::strictAssemblyForEVMObjects(langutil::EVMVersion{});
+    yul::ObjectParser objectParser{errorReporter, dialect};
+
     langutil::CharStream ir =
         langutil::CharStream(m_yulIR, m_modifiedSourceUnit);
-    variant<phaser::Program, langutil::ErrorList> maybeProgram =
-        phaser::Program::load(ir);
+    auto scanner = make_shared<langutil::Scanner>(ir);
+    auto object = objectParser.parse(scanner, false);
 
-    if (auto* errorList = get_if<langutil::ErrorList>(&maybeProgram)) {
+    if (!object or !errors.empty()) {
         langutil::SingletonCharStreamProvider streamProvider{ir};
         langutil::SourceReferenceFormatter{cerr, streamProvider, true, false}
-            .printErrorInformation(*errorList);
+            .printErrorInformation(errors);
         cerr << endl;
+        BOOST_THROW_EXCEPTION(runtime_error{"Parsing yul code failed"});
     }
-    auto program = get<phaser::Program>(maybeProgram);
-    m_yul_JSON_AST = program.toJson();
+
+    auto deploymentCode = object->code;
+
+    std::shared_ptr<yul::Block> runtimeCode{};
+    std::string runtimeObjectName = object->name.str() + "_deployed";
+    for (auto&& subObject : object->subObjects)
+        if (subObject && subObject->name.str() == runtimeObjectName)
+            if (auto* runtimeObject =
+                    dynamic_cast<yul::Object*>(subObject.get())) {
+                runtimeCode = runtimeObject->code;
+                break;
+            }
+
+    if (!runtimeCode) {
+        BOOST_THROW_EXCEPTION(
+            runtime_error{"Runtime code not found in the yul object"});
+    }
+
+    yul::AsmJsonConverter jsonConverter{{}};
+    Json::Value ret{Json::objectValue};
+    ret["deploymentCode"] = jsonConverter(*deploymentCode);
+    ret["runtimeCode"] = jsonConverter(*runtimeCode);
+
+    m_yul_JSON_AST = jsonPrettyPrint(removeNullMembers(std::move(ret)));
     return *this;
 }
 
@@ -414,30 +280,7 @@ WarpVisitor& WarpVisitor::yulPrepass() {
     tie(yulIR, yulIROptimized) = generator.run(
         m_compiler->contractDefinition(m_modifiedContractName),
         m_compiler->cborMetadata(m_modifiedContractName), otherYulSources);
-    auto prepass = YulCleaner();
-
-    m_yulIR = prepass.cleanYul(yulIROptimized, m_mainContract);
-    return *this;
-}
-
-WarpVisitor& WarpVisitor::yulPass() {
-    langutil::CharStream ir =
-        langutil::CharStream(m_yulIR, m_modifiedSourceUnit);
-    variant<phaser::Program, langutil::ErrorList> maybeProgram =
-        phaser::Program::load(ir);
-
-    if (auto* errorList = get_if<langutil::ErrorList>(&maybeProgram)) {
-        langutil::SingletonCharStreamProvider streamProvider{ir};
-        langutil::SourceReferenceFormatter{cerr, streamProvider, true, false}
-            .printErrorInformation(*errorList);
-        cerr << endl;
-    }
-    auto program = get<phaser::Program>(maybeProgram);
-    auto yulVisitor =
-        YulVisitor(m_yulIR, m_warpConstructorSelector, m_warpConstructorName);
-    yulVisitor(program.ast());
-    m_yulIR = yulVisitor.m_src;
-    if (m_print_ir) cout << "========YUL IR========\n" + m_yulIR << endl;
+    m_yulIR = yulIROptimized;
     return *this;
 }
 
@@ -490,7 +333,6 @@ void WarpVisitor::consolidateImports() {
     m_importStr = removeEmptyLines(m_importStr);
     m_src = removeImportDirectives(m_src);
     m_src = m_importStr + m_src;
-    m_srcSplit = splitStr(m_src);
     writeModifiedSolidity();
     refreshCompilerState(m_modifiedSolFilepath);
 }

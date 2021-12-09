@@ -24,7 +24,7 @@ FetchContent_Declare(
         solidity
 
         GIT_REPOSITORY "https://github.com/NethermindEth/nethersolc.git"
-        GIT_TAG "31d80771df272300e97d7674ea35a5e673b0c51b"
+        GIT_TAG "6e2bde57355442a370bc453e016fbbe31ce8dcc3"
         )
 
 if (NOT solidity_POPULATED)
@@ -52,7 +52,7 @@ ExternalProject_Add(
             -DUSE_Z3=OFF -DUSE_CVC4=OFF
 
         BUILD_COMMAND
-            make -j${NPROCS}
+            make -j${NPROCS} solutil langutil smtutil evmasm yul solidity solcli phaser
 
         INSTALL_COMMAND ""
         )
@@ -105,8 +105,6 @@ add_dependencies(full-solidity solidity-project)
 
 
 set (WARP_LIBS libwarp/common/json.hpp libwarp/common/library.hpp libwarp/common/library.cpp
-        libwarp/yul_prepass/YulVisitor.hpp libwarp/yul_prepass/YulVisitor.cpp
-        libwarp/yul_prepass/YulCleaner.hpp libwarp/yul_prepass/YulCleaner.cpp
         libwarp/solidity_prepass/WarpVisitor.hpp libwarp/solidity_prepass/WarpVisitor.cpp)
 
 add_library(warp-solidity ${WARP_LIBS})
