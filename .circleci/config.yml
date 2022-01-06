@@ -7,9 +7,15 @@ jobs:
       xcode: 13.2.1 # indicate your selected version of Xcode
     steps:
       - checkout
+      - restore_cache:
+          key: macos-build-
       - run:
           name: Install Dependencies
           command: brew install cmake boost icu4c
+      - save_cache:
+          key: macos-build-{{ epoch }}
+          paths: 
+            - build
       - run:
           name: Build Kudu
           command: sh build.sh
