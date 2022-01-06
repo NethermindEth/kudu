@@ -51,36 +51,3 @@ jobs:
         with:
           name: kudu-ubuntu
           path: build/kudu
-
-  build-macos:
-    runs-on: macos-latest
-
-    steps:
-      - uses: actions/checkout@v2
-
-      - name: Gen Cache Id
-        run: |
-          echo "::set-output name=timestamp::$(date '+%s')"
-        id: cache-id
-
-      - name: Cache build (macos)
-        uses: actions/cache@v2
-        with:
-          # npm cache files are stored in `~/.npm` on Linux/macOS
-          path: build
-          key: macos-build-${{ secrets.CACHE_ID }}-${{ steps.cache-id.outputs.timestamp }}
-          restore-keys: |
-            macos-build-${{ secrets.CACHE_ID }}-
-
-      - name: Install dependencies
-        run: brew install cmake boost icu4c
-
-      - name: Build kudu
-        run: |
-          sh build.sh
-
-      - name: Upload kudu artifact
-        uses: actions/upload-artifact@v2
-        with:
-          name: kudu-macos
-          path: build/kudu
