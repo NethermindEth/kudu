@@ -2,7 +2,7 @@ version: 2.1
  
 jobs:
   build_macos:
-    resource_class: large
+    resource_class: macos.x86.medium.gen2
     macos:
       xcode: 13.2.1 # indicate your selected version of Xcode
     steps:
