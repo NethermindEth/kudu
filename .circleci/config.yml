@@ -8,17 +8,17 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: macos-build-
+          key: macos-build
       - run:
           name: Install Dependencies
           command: brew install cmake boost icu4c
-      - save_cache:
-          key: macos-build-{{ epoch }}
-          paths: 
-            - build
       - run:
           name: Build Kudu
           command: sh build.sh
+      - save_cache:
+          key: macos-build
+          paths: 
+            - build
       - store_artifacts:
           path: build/kudu
  
