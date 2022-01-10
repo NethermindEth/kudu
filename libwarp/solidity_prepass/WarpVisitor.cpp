@@ -21,10 +21,10 @@
 
 #include "libwarp/common/library.hpp"
 
-
 WarpVisitor::WarpVisitor(const string& main_contract, const string& src,
                          const string& filepath, bool print_ir) {
     m_src = removeComments(removeEmptyLines(src));
+    m_srcOriginal = src;
     m_print_ir = print_ir;
     m_filepath = filepath;
     m_mainSourceUnit =
@@ -104,6 +104,15 @@ CommandLineInterface WarpVisitor::getCli(char const* sol_filepath) {
 }
 
 bool WarpVisitor::visit(VariableDeclaration const& _node) {
+    return visitNode(_node);
+}
+
+bool WarpVisitor::visit(MemberAccess const& _node) {
+    if (_node.annotation().referencedDeclaration &&
+        _node.annotation().referencedDeclaration->type()->category() ==
+            Type::Category::Function)
+        BOOST_THROW_EXCEPTION(runtime_error{
+            "Warp does not support member access on Function Types yet"});
     return visitNode(_node);
 }
 
