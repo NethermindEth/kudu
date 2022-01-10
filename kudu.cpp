@@ -55,7 +55,7 @@ void printYulAST(std::string& main_contract, std::string& contractContents,
         WarpVisitor warpVisitor(main_contract, contractContents, sol_filepath,
                                 print_ir);
         warpVisitor.yulPrepass().generateYulAST();
-        // std::cout << warpVisitor.m_yul_JSON_AST << std::endl;
+        std::cout << warpVisitor.m_yul_JSON_AST << std::endl;
     } catch (std::exception const& exc) {
         std::cerr << "ERROR: " << exc.what() << std::endl;
     } catch (...) {
