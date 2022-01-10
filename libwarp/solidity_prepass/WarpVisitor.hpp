@@ -28,6 +28,7 @@ class WarpVisitor : public ASTConstVisitor {
 
     bool visit(VariableDeclaration const& _node) override;
     bool visit(ImportDirective const& _node) override;
+    bool visit(MemberAccess const& _node) override;
     bool visitNode(ASTNode const& node) override;
 
     WarpVisitor& yulPrepass();
@@ -58,6 +59,7 @@ class WarpVisitor : public ASTConstVisitor {
     string m_modifiedSourceUnit;
     string m_modifiedSolFilepath;
     string m_src;
+    string m_srcOriginal;
     vec<string> m_contractNames;
     string m_modifiedContractName;
     string m_importStr;
