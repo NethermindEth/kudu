@@ -104,6 +104,8 @@ CommandLineInterface WarpVisitor::getCli(char const* sol_filepath) {
 }
 
 bool WarpVisitor::visit(VariableDeclaration const& _node) {
+    if (_node.type()->category() == Type::Category::Function) 
+        BOOST_THROW_EXCEPTION(runtime_error{"Warp does not support Functions as data yet"});
     if (_node.type()->category() == Type::Category::UserDefinedValueType) {
         BOOST_THROW_EXCEPTION(runtime_error{"Warp does not support User Defined Value Types Yet"});
     }
