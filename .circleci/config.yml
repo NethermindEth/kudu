@@ -1,0 +1,35 @@
+version: 2.1
+ 
+jobs:
+  build_macos:
+    parameters:
+      xcode:
+        type: string
+    resource_class: macos.x86.medium.gen2
+    macos:
+      xcode: << parameters.xcode >>
+    steps:
+      - checkout
+      - restore_cache:
+          key: macos-build-<< parameters.xcode >>-
+      - run:
+          name: Install Dependencies
+          command: brew install cmake boost icu4c
+      - run:
+          name: Build Kudu
+          command: sh build.sh
+      - save_cache:
+          key: macos-build-<< parameters.xcode >>-{{ epoch }}
+          paths: 
+            - build
+      - store_artifacts:
+          path: build/kudu
+ 
+workflows:
+  version: 2
+  build:
+    jobs:
+      - build_macos:
+          matrix:
+            parameters:
+              xcode: [13.2.1, 12.4.0]
