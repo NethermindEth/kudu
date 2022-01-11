@@ -2,9 +2,12 @@ version: 2.1
  
 jobs:
   build_macos:
+    parameters:
+      xcode:
+        type: string
     resource_class: macos.x86.medium.gen2
     macos:
-      xcode: 13.2.1 # indicate your selected version of Xcode
+      xcode: << parameters.xcode >>
     steps:
       - checkout
       - restore_cache:
@@ -26,4 +29,7 @@ workflows:
   version: 2
   build:
     jobs:
-      - build_macos
+      - build_macos:
+          matrix:
+            parameters:
+              xcode: [13.2.1, 12.4.0]
