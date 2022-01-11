@@ -2,7 +2,7 @@
 
 ## Install:
 
-Install g++-11 and make sure you have the Solidity compiler installed.
+Install gcc & g++ (version 8 or greater), the boost C++ libraries and make sure you have the Solidity compiler installed.
 
 Install the boost C++ libraries:
 MacOS
