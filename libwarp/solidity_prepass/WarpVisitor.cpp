@@ -2,6 +2,7 @@
 
 #include <json/value.h>
 #include <liblangutil/CharStreamProvider.h>
+#include <liblangutil/DebugInfoSelection.h>
 #include <liblangutil/Exceptions.h>
 #include <liblangutil/Scanner.h>
 #include <liblangutil/SourceReferenceFormatter.h>
@@ -94,12 +95,8 @@ CommandLineInterface WarpVisitor::getCli(char const* sol_filepath) {
     istringstream sin;  // never used, but the CLI requires it
     ostringstream sout;
     CommandLineInterface cli{sin, sout, cerr};
-    if (not cli.parseArguments(solc_argc, solc_argv))
-        BOOST_THROW_EXCEPTION(
-            runtime_error{"solc CLI failed to parse arguments"});
-    if (not cli.readInputFiles())
-        BOOST_THROW_EXCEPTION(runtime_error{"solc failed to read input files"});
-
+    cli.parseArguments(solc_argc, solc_argv);
+	cli.readInputFiles();
     return cli;
 }
 
@@ -150,7 +147,7 @@ void WarpVisitor::setCompilerOptions() {
           m_options.compiler.combinedJsonRequests->funDebugRuntime)));
     m_compiler->enableEwasmGeneration(m_options.compiler.outputs.ewasm);
     m_compiler->setOptimiserSettings(optimizerSettings());
-    m_compiler->setSources(m_fileReader.sourceCodes());
+    m_compiler->setSources(m_fileReader.sourceUnits());
     m_compiler->setParserErrorRecovery(m_options.input.errorRecovery);
 }
 
@@ -270,7 +267,9 @@ WarpVisitor& WarpVisitor::yulPrepass() {
     langutil::SingletonCharStreamProvider charStreamProvider{charStream};
     IRGenerator generator(newCli.options().output.evmVersion,
                           newCli.options().output.revertStrings,
-                          optimizerSettings(), m_compiler->sourceIndices(),
+                          optimizerSettings(),
+						  m_compiler->sourceIndices(),
+						  langutil::DebugInfoSelection::Default(),
                           &charStreamProvider);
 
     string yulIR, yulIROptimized;
