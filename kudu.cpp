@@ -6,6 +6,7 @@
 #include <tools/yulPhaser/Program.h>
 
 #include <boost/exception/all.hpp>
+#include <cstdlib>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
@@ -26,18 +27,17 @@ int useNetherSolc(int argc, char* argv[]) {
     setDefaultOrCLocale();
     solidity::frontend::CommandLineInterface cli(std::cin, std::cout,
                                                  std::cerr);
-    if (!cli.parseArguments(argc, argv)) return 1;
-    if (!cli.readInputFiles()) return 1;
-    if (!cli.processInput()) return 1;
-    bool success = false;
-    try {
-        success = cli.actOnInput();
-    } catch (boost::exception const& _exception) {
+	try {
+		return cli.run(argc, argv) ? EXIT_SUCCESS : EXIT_FAILURE;
+	} catch (boost::exception const& _exception) {
         std::cerr << "Exception during output generation: "
                   << boost::diagnostic_information(_exception) << std::endl;
-        success = false;
-    }
-    return success ? 0 : 1;
+		return EXIT_FAILURE;
+    } catch (std::exception const & _exception) {
+		std::cerr << "Exception during output generation: "
+				  << _exception.what() << std::endl;
+		return EXIT_FAILURE;
+	}
 }
 
 int printUsageInfo(char* argv[]) {

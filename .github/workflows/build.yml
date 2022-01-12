@@ -23,10 +23,10 @@ jobs:
           'deb http://mirrors.kernel.org/ubuntu hirsute main universe'
 
           sudo apt-get -y install build-essential git cmake
-          libboost-all-dev libgmp-dev libleveldb-dev libminiupnpc-dev
-          libreadline-dev libncurses5-dev libcurl4-openssl-dev
-          libjsonrpccpp-dev libmicrohttpd-dev libjsoncpp-dev
-          libedit-dev libz-dev gcc-11 g++-11 ccache
+          libboost-all-dev libfmt-dev libgmp-dev libleveldb-dev
+          libminiupnpc-dev libreadline-dev libncurses5-dev
+          libcurl4-openssl-dev libjsonrpccpp-dev libmicrohttpd-dev
+          libjsoncpp-dev libedit-dev libz-dev gcc-11 g++-11 ccache
 
       - name: Gen Cache Id
         run: |
@@ -73,7 +73,7 @@ jobs:
             macos-build-${{ secrets.CACHE_ID }}-
 
       - name: Install dependencies
-        run: brew install cmake boost icu4c
+        run: brew install cmake boost icu4c fmt
 
       - name: Build kudu
         run: |
