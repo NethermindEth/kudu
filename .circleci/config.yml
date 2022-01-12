@@ -11,7 +11,10 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: macos-build-<< parameters.xcode >>-
+          keys: 
+            - macos-build-<< parameters.xcode >>-{{ .Branch }}-{{ .Environment.CIRCLE_SHA1 }}
+            - macos-build-<< parameters.xcode >>-{{ .Branch }}
+            - macos-build-<< parameters.xcode >>
       - run:
           name: Install Dependencies
           command: brew install cmake boost icu4c fmt
@@ -19,9 +22,11 @@ jobs:
           name: Build Kudu
           command: sh build.sh
       - save_cache:
-          key: macos-build-<< parameters.xcode >>-{{ epoch }}
+          key: macos-build-<< parameters.xcode >>-{{ .Branch }}-{{ .Environment.CIRCLE_SHA1 }}
           paths: 
             - build
+            - /Users/distiller/Library/Caches/Homebrew
+            - /usr/local/Homebrew
       - store_artifacts:
           path: build/kudu
  
