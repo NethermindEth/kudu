@@ -1,6 +1,5 @@
 #pragma once
 
-#include <libsolidity/ast/AST.h>
 #include <libsolidity/ast/ASTVisitor.h>
 #include <libsolidity/interface/OptimiserSettings.h>
 #include <libsolidity/parsing/Parser.h>
