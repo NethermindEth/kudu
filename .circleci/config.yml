@@ -14,7 +14,7 @@ jobs:
           key: macos-build-<< parameters.xcode >>-
       - run:
           name: Install Dependencies
-          command: brew install cmake boost icu4c
+          command: brew install cmake boost icu4c fmt
       - run:
           name: Build Kudu
           command: sh build.sh
