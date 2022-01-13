@@ -15,7 +15,7 @@ case "$(uname -s)" in
         export LIBRARY_PATH
         ;;
 esac
-cmake .. -DCMAKE_BUILD_TYPE=Release
+cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=1
 make -j"$(getconf _NPROCESSORS_ONLN)"
 status=$?
 exit $status

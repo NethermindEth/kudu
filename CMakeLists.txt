@@ -15,7 +15,7 @@ endif()
 
 add_compile_options(-Wall -Wextra -pedantic -Werror -O3 -Wno-unused-parameter -Wno-uninitialized)
 
-find_package(Boost 1.65.0 QUIET REQUIRED COMPONENTS regex)
+find_package(Boost 1.65.0 QUIET REQUIRED COMPONENTS)
 include_directories(${Boost_INCLUDE_DIRS})
 
 include(FetchContent)
@@ -104,15 +104,11 @@ target_include_directories(full-solidity SYSTEM
 add_dependencies(full-solidity solidity-project)
 
 
-set (WARP_LIBS libwarp/common/json.hpp libwarp/common/library.hpp libwarp/common/library.cpp
-        libwarp/solidity_prepass/WarpVisitor.hpp libwarp/solidity_prepass/WarpVisitor.cpp)
-
-add_library(warp-solidity ${WARP_LIBS})
+add_library(warp-solidity yul-gen.h yul-gen.cpp)
 add_dependencies(warp-solidity solidity-project)
 target_include_directories(warp-solidity
         PUBLIC ${CMAKE_SOURCE_DIR} ${solidity_SOURCE_DIR} ${solidity_BINARY_DIR}/deps/include)
-target_link_libraries(warp-solidity full-solidity Boost::regex)
-
+target_link_libraries(warp-solidity full-solidity)
 
 add_executable(kudu kudu.cpp)
 target_link_libraries(kudu warp-solidity)
