@@ -24,7 +24,7 @@ FetchContent_Declare(
         solidity
 
         GIT_REPOSITORY "https://github.com/NethermindEth/nethersolc.git"
-        GIT_TAG "3e8e2066215c9ea40ebfbfb8d6babae53fb8038b"
+        GIT_TAG "fe707056961c2fbded0f043dd06b975b8cf8bbf5"
         )
 
 if (NOT solidity_POPULATED)
